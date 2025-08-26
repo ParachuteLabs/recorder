@@ -15,9 +15,18 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => VoiceNoteProvider(),
       child: MaterialApp(
-        title: 'Voice Notes',
+        title: 'Parachute',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF1B5E4A),
+            brightness: Brightness.dark,
+          ).copyWith(
+            primary: const Color(0xFF1B5E4A),
+            secondary: const Color(0xFF4CAF50),
+            surface: const Color(0xFF1B5E4A),
+            background: const Color(0xFF1B5E4A),
+          ),
+          scaffoldBackgroundColor: const Color(0xFF1B5E4A),
           useMaterial3: true,
         ),
         home: const HomeScreen(),
