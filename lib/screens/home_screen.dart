@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/voice_note_provider.dart';
+import '../widgets/animated_button.dart';
 import 'recording_screen.dart';
 import 'note_detail_screen.dart';
 
@@ -17,9 +18,17 @@ class HomeScreen extends StatelessWidget {
             // Navigate to recording screen when recording starts
             if (provider.state != RecordingState.idle) {
               Future.microtask(() {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (_) => const RecordingScreen(),
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        const RecordingScreen(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      );
+                    },
+                    transitionDuration: const Duration(milliseconds: 300),
                   ),
                 );
               });
@@ -121,26 +130,9 @@ class HomeScreen extends StatelessWidget {
                 // Record button
                 Padding(
                   padding: const EdgeInsets.all(20.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: () => provider.startNoteRecording(),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.white.withOpacity(0.6), width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                      ),
-                      child: const Text(
-                        'record',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+                  child: AnimatedButton(
+                    text: 'record',
+                    onPressed: () => provider.prepareForRecording(),
                   ),
                 ),
               ],

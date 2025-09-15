@@ -20,6 +20,7 @@ class _RecordingScreenState extends State<RecordingScreen>
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
   final TextEditingController _intentController = TextEditingController();
+  bool _hasStartedRecording = false; // Ensure we only start once
 
   @override
   void initState() {
@@ -29,6 +30,17 @@ class _RecordingScreenState extends State<RecordingScreen>
       vsync: this,
     )..repeat();
     _startTimer();
+
+    // Start recording immediately after init, no need to wait for frame
+    Future.microtask(() {
+      if (!_hasStartedRecording && mounted) {
+        final provider = Provider.of<VoiceNoteProvider>(context, listen: false);
+        if (provider.state == RecordingState.recordingNote) {
+          _hasStartedRecording = true;
+          provider.startNoteRecording();
+        }
+      }
+    });
   }
 
   void _startTimer() {
@@ -65,8 +77,16 @@ class _RecordingScreenState extends State<RecordingScreen>
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (provider.notes.isNotEmpty) {
                   Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (_) => NoteDetailScreen(note: provider.notes.first),
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) =>
+                          NoteDetailScreen(note: provider.notes.first),
+                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: child,
+                        );
+                      },
+                      transitionDuration: const Duration(milliseconds: 300),
                     ),
                   );
                 } else {
@@ -126,9 +146,12 @@ class _RecordingScreenState extends State<RecordingScreen>
 
                 // Main content
                 Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
                       // Circular visualization
                       SizedBox(
                         width: 200,
@@ -250,19 +273,11 @@ class _RecordingScreenState extends State<RecordingScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'What\'s the context of this?',
+                                'Add context to your note',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
                                   color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'What\'s your intent?',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white70,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -271,7 +286,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                                 autofocus: true,
                                 style: const TextStyle(color: Colors.white),
                                 decoration: InputDecoration(
-                                  hintText: '(How do you want to annotate this?)',
+                                  hintText: 'e.g. "Meeting notes", "Project idea"',
                                   hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
@@ -288,31 +303,13 @@ class _RecordingScreenState extends State<RecordingScreen>
                                   }
                                 },
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'What is this note related to?',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white.withOpacity(0.7),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                'Is "I was out on a bike and had this idea about x"\n'
-                                '"I want to turn this into a blog post"\n'
-                                '"Thinking about improving my diet"',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.white.withOpacity(0.5),
-                                  fontStyle: FontStyle.italic,
-                                  height: 1.4,
-                                ),
-                              ),
                             ],
                           ),
                         ),
                       ],
-                    ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
 

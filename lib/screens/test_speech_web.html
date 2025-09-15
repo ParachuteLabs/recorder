@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Web Speech API</title>
+</head>
+<body>
+    <h1>Web Speech API Test</h1>
+    <button id="start">Start Recording</button>
+    <button id="stop">Stop Recording</button>
+    <div id="result"></div>
+    <div id="status"></div>
+
+    <script>
+        const startBtn = document.getElementById('start');
+        const stopBtn = document.getElementById('stop');
+        const resultDiv = document.getElementById('result');
+        const statusDiv = document.getElementById('status');
+
+        // Check if browser supports Web Speech API
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            statusDiv.innerHTML = '✅ Speech API supported';
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                statusDiv.innerHTML += '<br>🎤 Started listening...';
+                console.log('Recognition started');
+            };
+
+            recognition.onresult = (event) => {
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript + ' ';
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                resultDiv.innerHTML = `
+                    <strong>Final:</strong> ${finalTranscript}<br>
+                    <strong>Interim:</strong> ${interimTranscript}
+                `;
+            };
+
+            recognition.onerror = (event) => {
+                statusDiv.innerHTML += `<br>❌ Error: ${event.error}`;
+                console.error('Speech recognition error', event);
+            };
+
+            recognition.onend = () => {
+                statusDiv.innerHTML += '<br>⏹️ Recognition ended';
+                console.log('Recognition ended');
+            };
+
+            startBtn.onclick = () => {
+                recognition.start();
+            };
+
+            stopBtn.onclick = () => {
+                recognition.stop();
+            };
+
+        } else {
+            statusDiv.innerHTML = '❌ Speech API not supported in this browser';
+        }
+    </script>
+</body>
+</html>

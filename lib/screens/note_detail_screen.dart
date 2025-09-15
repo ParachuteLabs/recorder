@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/voice_note.dart';
 import '../providers/voice_note_provider.dart';
+import 'home_screen.dart';
 
 class NoteDetailScreen extends StatelessWidget {
   final VoiceNote note;
@@ -35,7 +36,13 @@ class NoteDetailScreen extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      // Navigate back to home screen by replacing everything
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        (route) => false,
+                      );
+                    },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
