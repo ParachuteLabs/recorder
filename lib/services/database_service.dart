@@ -7,7 +7,7 @@ class DatabaseService {
   static Database? _database;
   static const String _dbName = 'voice_notes.db';
   static const String _tableName = 'notes';
-  static const int _version = 1;
+  static const int _version = 2; // Bumped version for durationSeconds column
 
   // In-memory storage for web platform
   static final List<VoiceNote> _inMemoryNotes = [];
@@ -39,6 +39,7 @@ class DatabaseService {
       path,
       version: _version,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -52,11 +53,22 @@ class DatabaseService {
         createdAt TEXT NOT NULL,
         latitude REAL,
         longitude REAL,
-        locationName TEXT
+        locationName TEXT,
+        durationSeconds INTEGER
       )
     ''');
 
-    debugPrint('Database table created');
+    debugPrint('Database table created with version $version');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    debugPrint('Upgrading database from version $oldVersion to $newVersion');
+
+    if (oldVersion < 2) {
+      // Add durationSeconds column for existing databases
+      await db.execute('ALTER TABLE $_tableName ADD COLUMN durationSeconds INTEGER');
+      debugPrint('Added durationSeconds column to existing database');
+    }
   }
 
   // Insert a new note

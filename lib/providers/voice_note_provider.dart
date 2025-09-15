@@ -30,6 +30,8 @@ class VoiceNoteProvider extends ChangeNotifier {
   String? _errorMessage;
   Position? _currentPosition;
   bool _isStartingRecording = false; // Prevent multiple simultaneous starts
+  DateTime? _recordingStartTime; // Track when recording started
+  DateTime? _recordingEndTime; // Track when main recording ended
 
   RecordingState get state => _state;
   List<VoiceNote> get notes => _notes;
@@ -69,6 +71,7 @@ class VoiceNoteProvider extends ChangeNotifier {
     debugPrint('Provider: Preparing for recording');
     _errorMessage = null;
     _currentNoteTranscription = '';
+    _recordingStartTime = null; // Clear any previous recording time
     _state = RecordingState.recordingNote;
     notifyListeners();
   }
@@ -106,6 +109,10 @@ class VoiceNoteProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
+
+    // Track when recording started
+    _recordingStartTime = DateTime.now();
+    debugPrint('Provider: 🕐 Recording START TIME set: $_recordingStartTime');
 
     // Start speech recognition with live updates
     try {
@@ -151,6 +158,16 @@ class VoiceNoteProvider extends ChangeNotifier {
     if (_state != RecordingState.recordingNote) {
       debugPrint('Provider: Not in recording state, skipping stop');
       return;
+    }
+
+    // Capture the end time for the main recording
+    _recordingEndTime = DateTime.now();
+    debugPrint('Provider: Recording ended at $_recordingEndTime');
+    if (_recordingStartTime != null) {
+      final duration = _recordingEndTime!.difference(_recordingStartTime!);
+      debugPrint('Provider: Main recording duration: ${duration.inSeconds}s');
+    } else {
+      debugPrint('Provider: WARNING - No recording start time!');
     }
 
     // Stop speech recognition first to get final words
@@ -276,6 +293,21 @@ class VoiceNoteProvider extends ChangeNotifier {
           ? 'No transcription available'
           : _currentNoteTranscription;
 
+      // Calculate recording duration
+      int? durationSeconds;
+      if (_recordingStartTime != null && _recordingEndTime != null) {
+        final duration = _recordingEndTime!.difference(_recordingStartTime!);
+        durationSeconds = duration.inSeconds;
+        debugPrint('Provider: Calculating final duration:');
+        debugPrint('  - Recording started at $_recordingStartTime');
+        debugPrint('  - Recording ended at $_recordingEndTime');
+        debugPrint('  - Duration: ${durationSeconds}s (${duration.toString()})');
+      } else {
+        debugPrint('Provider: WARNING - Missing timing data!');
+        debugPrint('  - Start time: $_recordingStartTime');
+        debugPrint('  - End time: $_recordingEndTime');
+      }
+
       debugPrint('Provider: Saving note with transcription: "$transcription"');
       debugPrint('Provider: Intent: "$intentDescription"');
 
@@ -291,6 +323,7 @@ class VoiceNoteProvider extends ChangeNotifier {
               _currentPosition!.longitude
             )
           : null,
+        durationSeconds: durationSeconds,
       );
 
       try {
@@ -352,6 +385,9 @@ class VoiceNoteProvider extends ChangeNotifier {
     _currentIntentTranscription = '';
     _currentPosition = null;
     _errorMessage = null;
+    _recordingStartTime = null;
+    _recordingEndTime = null;
+    _isStartingRecording = false;
     notifyListeners();
   }
 

@@ -10,13 +10,33 @@ class NoteDetailScreen extends StatelessWidget {
 
   const NoteDetailScreen({super.key, required this.note});
 
-  String _calculateDuration() {
-    // For now, return a placeholder. In production, would calculate from audio file
-    return '5m58s';
+  String _calculateDuration(VoiceNote note) {
+    if (note.durationSeconds == null) {
+      return '0h 0m 0s';
+    }
+
+    final hours = note.durationSeconds! ~/ 3600;
+    final minutes = (note.durationSeconds! % 3600) ~/ 60;
+    final seconds = note.durationSeconds! % 60;
+
+    return '${hours}h ${minutes}m ${seconds}s';
   }
 
   int _countWords(String text) {
+    if (text.trim().isEmpty) return 0;
     return text.trim().split(RegExp(r'\s+')).length;
+  }
+
+  String _getTitle(VoiceNote note) {
+    // Get first 3 words of transcription with ellipses
+    final words = note.transcription.trim().split(RegExp(r'\s+'));
+    if (words.isEmpty || (words.length == 1 && words[0].isEmpty)) {
+      return note.intentDescription ?? 'Untitled Recording';
+    }
+
+    final firstThreeWords = words.take(3).join(' ');
+    final suffix = words.length > 3 ? '...' : '';
+    return '$firstThreeWords$suffix';
   }
 
   @override
@@ -66,9 +86,9 @@ class NoteDetailScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title/Intent
+                    // Title - First 3 words with ellipses
                     Text(
-                      note.intentDescription ?? 'Untitled Recording',
+                      _getTitle(note),
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
@@ -90,16 +110,15 @@ class NoteDetailScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'some stats...',
+                            'stats',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.white.withOpacity(0.6),
-                              fontStyle: FontStyle.italic,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            _calculateDuration(),
+                            _calculateDuration(note),
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w500,
@@ -134,11 +153,10 @@ class NoteDetailScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'intent (the second recording) goes here',
+                              'intent',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withOpacity(0.6),
-                                fontStyle: FontStyle.italic,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -160,6 +178,9 @@ class NoteDetailScreen extends StatelessWidget {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
+                      constraints: const BoxConstraints(
+                        maxHeight: 300, // Max height for scrollable area
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.1),
                         border: Border.all(color: Colors.white.withOpacity(0.2)),
@@ -167,22 +188,26 @@ class NoteDetailScreen extends StatelessWidget {
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'transcript preview - also scrollable',
+                            'transcript',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.white.withOpacity(0.6),
-                              fontStyle: FontStyle.italic,
                             ),
                           ),
                           const SizedBox(height: 12),
-                          Text(
-                            note.transcription,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.white,
-                              height: 1.5,
+                          Flexible(
+                            child: SingleChildScrollView(
+                              child: Text(
+                                note.transcription,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  color: Colors.white,
+                                  height: 1.5,
+                                ),
+                              ),
                             ),
                           ),
                         ],
