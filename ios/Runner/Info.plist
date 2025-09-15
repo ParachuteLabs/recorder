@@ -51,5 +51,9 @@
 	<string>This app needs access to speech recognition to transcribe voice notes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to location to tag where voice notes were recorded.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>
