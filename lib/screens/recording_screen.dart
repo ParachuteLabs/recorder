@@ -21,6 +21,7 @@ class _RecordingScreenState extends State<RecordingScreen>
   int _recordingSeconds = 0;
   final TextEditingController _intentController = TextEditingController();
   bool _hasStartedRecording = false; // Ensure we only start once
+  late List<Widget> _animatedDots; // Pre-build dots to avoid recreation
 
   @override
   void initState() {
@@ -29,6 +30,10 @@ class _RecordingScreenState extends State<RecordingScreen>
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat();
+
+    // Pre-build animated dots once to avoid recreation
+    _animatedDots = _buildAnimatedDots();
+
     _startTimer();
 
     // Start recording immediately after init, no need to wait for frame
@@ -63,6 +68,33 @@ class _RecordingScreenState extends State<RecordingScreen>
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  List<Widget> _buildAnimatedDots() {
+    return List.generate(12, (index) {
+      return AnimatedBuilder(
+        animation: _dotAnimationController,
+        builder: (context, child) {
+          final angle = (index * 30) * (math.pi / 180);
+          final animatedAngle = angle - (_dotAnimationController.value * 2 * math.pi);
+          final radius = 70.0;
+          final opacity = ((math.sin(_dotAnimationController.value * 2 * math.pi - angle) + 1) / 2) * 0.7 + 0.3;
+
+          return Positioned(
+            left: 100 + radius * math.cos(animatedAngle) - 6,
+            top: 100 + radius * math.sin(animatedAngle) - 6,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(opacity),
+              ),
+            ),
+          );
+        },
+      );
+    });
   }
 
   @override
@@ -169,32 +201,9 @@ class _RecordingScreenState extends State<RecordingScreen>
                               ),
                             ),
 
-                            // Animated dots
+                            // Animated dots (pre-built to avoid recreation)
                             if (provider.isRecording)
-                              ...List.generate(12, (index) {
-                                return AnimatedBuilder(
-                                  animation: _dotAnimationController,
-                                  builder: (context, child) {
-                                    final angle = (index * 30) * (math.pi / 180);
-                                    final animatedAngle = angle - (_dotAnimationController.value * 2 * math.pi);
-                                    final radius = 70.0;
-                                    final opacity = ((math.sin(_dotAnimationController.value * 2 * math.pi - angle) + 1) / 2) * 0.7 + 0.3;
-
-                                    return Positioned(
-                                      left: 100 + radius * math.cos(animatedAngle) - 6,
-                                      top: 100 + radius * math.sin(animatedAngle) - 6,
-                                      child: Container(
-                                        width: 12,
-                                        height: 12,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white.withOpacity(opacity),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              }),
+                              ..._animatedDots,
 
                             // Play/Stop button
                             GestureDetector(

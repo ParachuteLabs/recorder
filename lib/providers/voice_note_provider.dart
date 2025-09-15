@@ -46,14 +46,22 @@ class VoiceNoteProvider extends ChangeNotifier {
   }
 
   Future<void> _initializeServices() async {
-    // Initialize speech recognition
-    final speechAvailable = await _speechService.initialize();
+    // Initialize services in parallel for faster startup
+    final futures = await Future.wait([
+      // Initialize speech recognition
+      _speechService.initialize(),
+      // Pre-warm audio recorder permissions
+      _audioRecorder.requestPermission(),
+      // Load existing notes from database
+      loadNotes(),
+    ]);
+
+    final speechAvailable = futures[0] as bool;
     if (!speechAvailable) {
       debugPrint('Speech recognition not available');
     }
 
-    // Load existing notes from database
-    await loadNotes();
+    debugPrint('Services pre-initialized for better performance');
   }
 
   Future<void> loadNotes() async {
@@ -170,6 +178,10 @@ class VoiceNoteProvider extends ChangeNotifier {
       debugPrint('Provider: WARNING - No recording start time!');
     }
 
+    // Immediately move to waiting state for responsive UI
+    _state = RecordingState.waitingForIntent;
+    notifyListeners();
+
     // Stop speech recognition first to get final words
     await _speechService.stopListening();
 
@@ -189,10 +201,6 @@ class VoiceNoteProvider extends ChangeNotifier {
 
     // Now stop the audio recording
     await _audioRecorder.stopRecording();
-
-    // Move to waiting for intent state
-    _state = RecordingState.waitingForIntent;
-    notifyListeners();
   }
 
   Future<void> startIntentRecording() async {
