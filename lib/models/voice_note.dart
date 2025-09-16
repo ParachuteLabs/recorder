@@ -9,6 +9,7 @@ class VoiceNote {
   final double? latitude;
   final double? longitude;
   final String? locationName;
+  final int? durationSeconds; // Duration of the recording in seconds
 
   VoiceNote({
     String? id,
@@ -19,6 +20,7 @@ class VoiceNote {
     this.latitude,
     this.longitude,
     this.locationName,
+    this.durationSeconds,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -32,6 +34,7 @@ class VoiceNote {
       'latitude': latitude,
       'longitude': longitude,
       'locationName': locationName,
+      'durationSeconds': durationSeconds,
     };
   }
 
@@ -45,6 +48,7 @@ class VoiceNote {
       latitude: map['latitude']?.toDouble(),
       longitude: map['longitude']?.toDouble(),
       locationName: map['locationName'],
+      durationSeconds: map['durationSeconds']?.toInt(),
     );
   }
 }

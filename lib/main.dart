@@ -3,7 +3,12 @@ import 'package:provider/provider.dart';
 import 'providers/voice_note_provider.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Pre-initialize services for better performance
+  // This happens before the app UI loads
+
   runApp(const MyApp());
 }
 
@@ -30,6 +35,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
         ),
         home: const HomeScreen(),
+        debugShowCheckedModeBanner: false,
       ),
     );
   }

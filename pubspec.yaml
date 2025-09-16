@@ -1,8 +1,8 @@
 name: voice_notes
-description: "Simple voice notes app with on-device transcription"
+description: "Parachute - Voice recording with intelligent transcription"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -33,21 +33,24 @@ dependencies:
 
   # UI
   cupertino_icons: ^1.0.8
-  
+
   # Audio recording and speech recognition
   record: ^6.1.1
   speech_to_text: ^7.0.0
   permission_handler: ^11.0.1
   path_provider: ^2.1.1
-  
+
   # State management (keeping it simple)
   provider: ^6.1.1
-  
+
   # Storage for notes
   sqflite: ^2.3.0
   path: ^1.8.3
   uuid: ^4.2.1
-  
+
+  # Sharing functionality
+  share_plus: ^10.1.3
+
   # Location
   geolocator: ^10.1.0
 
@@ -67,7 +70,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

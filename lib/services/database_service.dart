@@ -7,9 +7,23 @@ class DatabaseService {
   static Database? _database;
   static const String _dbName = 'voice_notes.db';
   static const String _tableName = 'notes';
-  static const int _version = 1;
+  static const int _version = 2; // Bumped version for durationSeconds column
 
-  Future<Database> get database async {
+  // In-memory storage for web platform
+  static final List<VoiceNote> _inMemoryNotes = [];
+  static bool _useInMemory = false;
+
+  DatabaseService() {
+    // Use in-memory storage for web platform
+    _useInMemory = kIsWeb;
+    if (_useInMemory) {
+      debugPrint('Using in-memory storage for web platform');
+    }
+  }
+
+  Future<Database?> get database async {
+    if (_useInMemory) return null;
+
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
@@ -18,13 +32,14 @@ class DatabaseService {
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, _dbName);
-    
+
     debugPrint('Database path: $path');
-    
+
     return await openDatabase(
       path,
       version: _version,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -38,17 +53,34 @@ class DatabaseService {
         createdAt TEXT NOT NULL,
         latitude REAL,
         longitude REAL,
-        locationName TEXT
+        locationName TEXT,
+        durationSeconds INTEGER
       )
     ''');
-    
-    debugPrint('Database table created');
+
+    debugPrint('Database table created with version $version');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    debugPrint('Upgrading database from version $oldVersion to $newVersion');
+
+    if (oldVersion < 2) {
+      // Add durationSeconds column for existing databases
+      await db.execute('ALTER TABLE $_tableName ADD COLUMN durationSeconds INTEGER');
+      debugPrint('Added durationSeconds column to existing database');
+    }
   }
 
   // Insert a new note
   Future<void> insertNote(VoiceNote note) async {
+    if (_useInMemory) {
+      _inMemoryNotes.insert(0, note);
+      debugPrint('Note saved to in-memory storage: ${note.id}');
+      return;
+    }
+
     final db = await database;
-    await db.insert(
+    await db!.insert(
       _tableName,
       note.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -58,12 +90,16 @@ class DatabaseService {
 
   // Get all notes
   Future<List<VoiceNote>> getAllNotes() async {
+    if (_useInMemory) {
+      return List.from(_inMemoryNotes);
+    }
+
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
+    final List<Map<String, dynamic>> maps = await db!.query(
       _tableName,
       orderBy: 'createdAt DESC',
     );
-    
+
     return List.generate(maps.length, (i) {
       return VoiceNote.fromMap(maps[i]);
     });
@@ -71,13 +107,21 @@ class DatabaseService {
 
   // Get a single note by ID
   Future<VoiceNote?> getNoteById(String id) async {
+    if (_useInMemory) {
+      try {
+        return _inMemoryNotes.firstWhere((note) => note.id == id);
+      } catch (e) {
+        return null;
+      }
+    }
+
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
+    final List<Map<String, dynamic>> maps = await db!.query(
       _tableName,
       where: 'id = ?',
       whereArgs: [id],
     );
-    
+
     if (maps.isNotEmpty) {
       return VoiceNote.fromMap(maps.first);
     }
@@ -86,8 +130,16 @@ class DatabaseService {
 
   // Update a note
   Future<void> updateNote(VoiceNote note) async {
+    if (_useInMemory) {
+      final index = _inMemoryNotes.indexWhere((n) => n.id == note.id);
+      if (index != -1) {
+        _inMemoryNotes[index] = note;
+      }
+      return;
+    }
+
     final db = await database;
-    await db.update(
+    await db!.update(
       _tableName,
       note.toMap(),
       where: 'id = ?',
@@ -97,8 +149,14 @@ class DatabaseService {
 
   // Delete a note
   Future<void> deleteNote(String id) async {
+    if (_useInMemory) {
+      _inMemoryNotes.removeWhere((note) => note.id == id);
+      debugPrint('Note deleted from in-memory storage: $id');
+      return;
+    }
+
     final db = await database;
-    await db.delete(
+    await db!.delete(
       _tableName,
       where: 'id = ?',
       whereArgs: [id],
@@ -107,14 +165,22 @@ class DatabaseService {
 
   // Search notes by transcription or intent
   Future<List<VoiceNote>> searchNotes(String query) async {
+    if (_useInMemory) {
+      final lowercaseQuery = query.toLowerCase();
+      return _inMemoryNotes.where((note) {
+        return note.transcription.toLowerCase().contains(lowercaseQuery) ||
+            (note.intentDescription?.toLowerCase().contains(lowercaseQuery) ?? false);
+      }).toList();
+    }
+
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
+    final List<Map<String, dynamic>> maps = await db!.query(
       _tableName,
       where: 'transcription LIKE ? OR intentDescription LIKE ?',
       whereArgs: ['%$query%', '%$query%'],
       orderBy: 'createdAt DESC',
     );
-    
+
     return List.generate(maps.length, (i) {
       return VoiceNote.fromMap(maps[i]);
     });
@@ -122,14 +188,20 @@ class DatabaseService {
 
   // Get notes by date range
   Future<List<VoiceNote>> getNotesByDateRange(DateTime start, DateTime end) async {
+    if (_useInMemory) {
+      return _inMemoryNotes.where((note) {
+        return note.createdAt.isAfter(start) && note.createdAt.isBefore(end);
+      }).toList();
+    }
+
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
+    final List<Map<String, dynamic>> maps = await db!.query(
       _tableName,
       where: 'createdAt BETWEEN ? AND ?',
       whereArgs: [start.toIso8601String(), end.toIso8601String()],
       orderBy: 'createdAt DESC',
     );
-    
+
     return List.generate(maps.length, (i) {
       return VoiceNote.fromMap(maps[i]);
     });
@@ -137,7 +209,9 @@ class DatabaseService {
 
   // Close database
   Future<void> close() async {
+    if (_useInMemory) return;
+
     final db = await database;
-    await db.close();
+    await db!.close();
   }
 }
