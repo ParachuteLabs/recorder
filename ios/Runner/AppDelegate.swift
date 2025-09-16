@@ -46,73 +46,7 @@ import AVFoundation
       print("Failed to set up audio session: \(error)")
     }
 
-    // Set up notification observers for audio interruptions
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(handleAudioSessionInterruption),
-      name: AVAudioSession.interruptionNotification,
-      object: nil
-    )
-
-    // Set up notification observers for route changes
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(handleAudioSessionRouteChange),
-      name: AVAudioSession.routeChangeNotification,
-      object: nil
-    )
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
-
-  @objc private func handleAudioSessionInterruption(notification: Notification) {
-    guard let userInfo = notification.userInfo,
-          let typeValue = userInfo[AVAudioSession.interruptionTypeKey] as? UInt,
-          let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
-      return
-    }
-
-    switch type {
-    case .began:
-      // Recording was interrupted (e.g., phone call)
-      print("Audio session interrupted")
-    case .ended:
-      // Interruption ended, resume recording if needed
-      if let optionsValue = userInfo[AVAudioSession.interruptionOptionKey] as? UInt {
-        let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
-        if options.contains(.shouldResume) {
-          do {
-            try AVAudioSession.sharedInstance().setActive(true)
-            print("Audio session resumed")
-          } catch {
-            print("Failed to resume audio session: \(error)")
-          }
-        }
-      }
-    @unknown default:
-      break
-    }
-  }
-
-  @objc private func handleAudioSessionRouteChange(notification: Notification) {
-    guard let userInfo = notification.userInfo,
-          let reasonValue = userInfo[AVAudioSession.routeChangeReasonKey] as? UInt,
-          let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
-      return
-    }
-
-    // Handle route changes (e.g., headphones disconnected)
-    switch reason {
-    case .oldDeviceUnavailable:
-      // Resume recording with new route
-      do {
-        try AVAudioSession.sharedInstance().setActive(true)
-      } catch {
-        print("Failed to handle route change: \(error)")
-      }
-    default:
-      break
-    }
   }
 
   // Background task management for long recordings

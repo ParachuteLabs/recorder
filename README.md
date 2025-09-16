@@ -107,3 +107,6 @@ Private - Parachute Studios
 ## Support
 
 For issues or questions, contact the Parachute development team.
+
+flutter build ios --release
+open ios/Runner.xcworkspace, then CMD+R
