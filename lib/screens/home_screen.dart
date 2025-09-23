@@ -13,7 +13,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final StorageService _storageService = StorageService();
   List<Recording> _recordings = [];
   bool _isLoading = true;
@@ -21,12 +21,35 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadRecordings();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshRecordings();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh when screen gains focus
+    if (ModalRoute.of(context)?.isCurrent == true) {
+      _refreshRecordings();
+    }
   }
 
   Future<void> _loadRecordings() async {
     final recordings = await _storageService.getRecordings();
-    
+
     // Add sample data if no recordings exist (for demo purposes)
     if (recordings.isEmpty) {
       final sampleRecordings = SampleData.getSampleRecordings();
@@ -58,21 +81,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _startRecording() async {
-    final result = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const RecordingScreen()),
     );
-    
-    if (result == true) {
-      _refreshRecordings();
-    }
+
+    // Always refresh when returning from recording flow
+    _refreshRecordings();
   }
 
   void _openRecordingDetail(Recording recording) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => RecordingDetailScreen(recording: recording),
-      ),
-    ).then((_) => _refreshRecordings());
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (context) => RecordingDetailScreen(recording: recording),
+          ),
+        )
+        .then((_) => _refreshRecordings());
   }
 
   @override
@@ -109,15 +133,15 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             'No recordings yet',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.grey.withValues(alpha: 0.7),
-            ),
+                  color: Colors.grey.withValues(alpha: 0.7),
+                ),
           ),
           const SizedBox(height: 8),
           Text(
             'Tap the microphone button to start recording',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey.withValues(alpha: 0.7),
-            ),
+                  color: Colors.grey.withValues(alpha: 0.7),
+                ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -134,8 +158,8 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Text(
             'Past recordings',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
         ),
         Expanded(

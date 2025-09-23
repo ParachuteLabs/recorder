@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:parachute/models/recording.dart';
-import 'package:parachute/services/audio_service.dart';
 import 'package:parachute/services/storage_service.dart';
+import 'package:parachute/widgets/playback_controls.dart';
 
 class RecordingDetailScreen extends StatefulWidget {
   final Recording recording;
@@ -17,49 +17,120 @@ class RecordingDetailScreen extends StatefulWidget {
 }
 
 class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
-  final AudioService _audioService = AudioService();
   final StorageService _storageService = StorageService();
-  bool _isPlaying = false;
+  late Recording _recording;
 
   @override
   void initState() {
     super.initState();
-    _initializeAudio();
-  }
-
-  Future<void> _initializeAudio() async {
-    await _audioService.initialize();
-  }
-
-  Future<void> _togglePlayback() async {
-    if (_isPlaying) {
-      await _audioService.stopPlayback();
-      setState(() => _isPlaying = false);
-    } else {
-      final success = await _audioService.playRecording(widget.recording.filePath);
-      if (success) {
-        setState(() => _isPlaying = true);
-        // Auto-stop after duration
-        Future.delayed(widget.recording.duration, () {
-          if (mounted && _isPlaying) {
-            setState(() => _isPlaying = false);
-          }
-        });
-      }
-    }
+    _recording = widget.recording;
   }
 
   void _copyToClipboard() {
-    Clipboard.setData(ClipboardData(text: widget.recording.transcript));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Transcript copied to clipboard')),
-    );
+    if (_recording.transcript.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: _recording.transcript));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Transcript copied to clipboard')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No transcript available')),
+      );
+    }
   }
 
   void _addToCalendar() {
-    // TODO: Implement calendar integration
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add to calendar - Coming soon!')),
+      const SnackBar(content: Text('Calendar integration coming soon')),
+    );
+  }
+
+  void _showEditDialog() {
+    final titleController = TextEditingController(text: _recording.title);
+    final transcriptController =
+        TextEditingController(text: _recording.transcript);
+    final tagsController =
+        TextEditingController(text: _recording.tags.join(', '));
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Recording'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: tagsController,
+                decoration: const InputDecoration(
+                  labelText: 'Tags (comma-separated)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: transcriptController,
+                decoration: const InputDecoration(
+                  labelText: 'Transcript',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 4,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final updatedRecording = Recording(
+                id: _recording.id,
+                title: titleController.text.trim(),
+                filePath: _recording.filePath,
+                timestamp: _recording.timestamp,
+                duration: _recording.duration,
+                tags: tagsController.text
+                    .split(',')
+                    .map((tag) => tag.trim())
+                    .where((tag) => tag.isNotEmpty)
+                    .toList(),
+                transcript: transcriptController.text.trim(),
+                fileSizeKB: _recording.fileSizeKB,
+              );
+
+              final success =
+                  await _storageService.updateRecording(updatedRecording);
+              if (success && mounted) {
+                setState(() {
+                  _recording = updatedRecording;
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Recording updated')),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _shareRecording() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Share functionality coming soon')),
     );
   }
 
@@ -76,10 +147,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                 title: const Text('Edit'),
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: Implement edit functionality
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Edit - Coming soon!')),
-                  );
+                  _showEditDialog();
                 },
               ),
               ListTile(
@@ -87,15 +155,13 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                 title: const Text('Share'),
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: Implement share functionality
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Share - Coming soon!')),
-                  );
+                  _shareRecording();
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                title:
+                    const Text('Delete', style: TextStyle(color: Colors.red)),
                 onTap: () {
                   Navigator.pop(context);
                   _confirmDelete();
@@ -114,7 +180,8 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete Recording'),
-          content: const Text('Are you sure you want to delete this recording? This action cannot be undone.'),
+          content: const Text(
+              'Are you sure you want to delete this recording? This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -122,10 +189,11 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
             ),
             TextButton(
               onPressed: () async {
-                Navigator.pop(context); // Close dialog
-                final success = await _storageService.deleteRecording(widget.recording.id);
+                Navigator.pop(context);
+                final success =
+                    await _storageService.deleteRecording(_recording.id);
                 if (success && mounted) {
-                  Navigator.pop(context, true); // Return to home with refresh signal
+                  Navigator.pop(context, true);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Recording deleted')),
                   );
@@ -144,7 +212,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.recording.title),
+        title: Text(_recording.title),
         centerTitle: true,
         elevation: 0,
         actions: [
@@ -159,80 +227,39 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Playback section
-            _buildPlaybackSection(),
-            
+            // Playback controls
+            PlaybackControls(
+              filePath: _recording.filePath,
+              duration: _recording.duration,
+              onDelete: () async {
+                final success =
+                    await _storageService.deleteRecording(_recording.id);
+                if (success && mounted) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+            ),
+
             const SizedBox(height: 24),
-            
+
             // Recording info
             _buildInfoSection(),
-            
+
             const SizedBox(height: 24),
-            
+
             // Tags
-            if (widget.recording.tags.isNotEmpty) ...[
+            if (_recording.tags.isNotEmpty) ...[
               _buildTagsSection(),
               const SizedBox(height: 24),
             ],
-            
+
             // Transcript section
             _buildTranscriptSection(),
-            
+
             const SizedBox(height: 24),
-            
+
             // Action buttons
             _buildActionButtons(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaybackSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            IconButton(
-              onPressed: _togglePlayback,
-              icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-              iconSize: 48,
-              style: IconButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.recording.title,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Duration: ${widget.recording.durationString}',
-                    style: TextStyle(
-                      color: Colors.grey.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  Text(
-                    'Size: ${widget.recording.formattedSize}',
-                    style: TextStyle(
-                      color: Colors.grey.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_isPlaying)
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
           ],
         ),
       ),
@@ -244,21 +271,19 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Some stats...',
+          'Recording Details',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+                fontWeight: FontWeight.bold,
+              ),
         ),
-        const SizedBox(height: 8),
-        Text('5m58s', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 16),
         Row(
           children: [
-            _buildStatCard('Duration', widget.recording.durationString),
+            _buildStatCard('Duration', _recording.durationString),
             const SizedBox(width: 12),
-            _buildStatCard('Size', widget.recording.formattedSize),
+            _buildStatCard('Size', _recording.formattedSize),
             const SizedBox(width: 12),
-            _buildStatCard('Date', widget.recording.timeAgo),
+            _buildStatCard('Date', _recording.timeAgo),
           ],
         ),
       ],
@@ -283,7 +308,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.grey.withValues(alpha: 0.7),
+                  color: Colors.grey.withOpacity(0.7),
                   fontSize: 12,
                 ),
               ),
@@ -301,14 +326,14 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
         Text(
           'Tags',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: widget.recording.tags.map((tag) {
+          children: _recording.tags.map((tag) {
             return Chip(
               label: Text(tag),
               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
@@ -327,31 +352,44 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Transcript Preview',
+              'Transcript',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
-            TextButton.icon(
+            IconButton(
               onPressed: _copyToClipboard,
-              icon: const Icon(Icons.copy, size: 16),
-              label: const Text('Copy'),
+              icon: const Icon(Icons.copy, size: 20),
+              tooltip: 'Copy transcript',
             ),
           ],
         ),
         const SizedBox(height: 8),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest
+                .withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.grey.withValues(alpha: 0.3),
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
             ),
-            borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            widget.recording.transcript,
-            style: const TextStyle(height: 1.5),
+            _recording.transcript.isNotEmpty
+                ? _recording.transcript
+                : 'No transcript available',
+            style: TextStyle(
+              height: 1.5,
+              color: _recording.transcript.isNotEmpty
+                  ? null
+                  : Colors.grey.withOpacity(0.7),
+              fontStyle:
+                  _recording.transcript.isEmpty ? FontStyle.italic : null,
+            ),
           ),
         ),
       ],
@@ -362,27 +400,27 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
     return Row(
       children: [
         Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _copyToClipboard,
-            icon: const Icon(Icons.copy),
-            label: const Text('Copy to clipboard'),
+          child: ElevatedButton.icon(
+            onPressed: _addToCalendar,
+            icon: const Icon(Icons.calendar_today),
+            label: const Text('Add to Calendar'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: ElevatedButton.icon(
-            onPressed: _addToCalendar,
-            icon: const Icon(Icons.calendar_today),
-            label: const Text('Add to calendar'),
+          child: OutlinedButton.icon(
+            onPressed: _shareRecording,
+            icon: const Icon(Icons.share),
+            label: const Text('Share'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
           ),
         ),
       ],
     );
-  }
-
-  @override
-  void dispose() {
-    _audioService.dispose();
-    super.dispose();
   }
 }

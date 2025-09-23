@@ -6,11 +6,13 @@ import 'package:parachute/services/storage_service.dart';
 class PostRecordingScreen extends StatefulWidget {
   final String recordingPath;
   final Duration duration;
+  final String? initialTranscript;
 
   const PostRecordingScreen({
     super.key,
     required this.recordingPath,
     required this.duration,
+    this.initialTranscript,
   });
 
   @override
@@ -22,9 +24,15 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
   final TextEditingController _transcriptController = TextEditingController();
   final StorageService _storageService = StorageService();
   final AudioService _audioService = AudioService();
-  
+
   final List<String> _predefinedTags = [
-    'Project A', 'To Do', 'Meeting', 'Interview', 'Idea', 'Note', 'Important'
+    'Project A',
+    'To Do',
+    'Meeting',
+    'Interview',
+    'Idea',
+    'Note',
+    'Important'
   ];
   final Set<String> _selectedTags = {};
   bool _isPlaying = false;
@@ -33,16 +41,14 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
   @override
   void initState() {
     super.initState();
-    _titleController.text = 'Recording ${DateTime.now().toString().substring(5, 16)}';
-    _transcriptController.text = '''Your transcript of your recording goes here...
-(Scrollable)
+    // Generate a default title with date and time
+    final now = DateTime.now();
+    final dateStr =
+        '${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    _titleController.text = 'Recording $dateStr';
 
-This is placeholder text showing where the transcript would appear. 
-In a real implementation, this would be generated from the audio file 
-using speech-to-text services.
-
-The transcript helps users quickly review the content of their recordings 
-without having to listen to the entire audio file.''';
+    // Use the transcription from the recording if available
+    _transcriptController.text = widget.initialTranscript ?? '';
   }
 
   Future<void> _togglePlayback() async {
@@ -65,16 +71,17 @@ without having to listen to the entire audio file.''';
 
   Future<void> _saveRecording() async {
     if (_isSaving) return;
-    
+
     setState(() => _isSaving = true);
-    
+
     try {
-      final fileSizeKB = await _audioService.getFileSizeKB(widget.recordingPath);
-      
+      final fileSizeKB =
+          await _audioService.getFileSizeKB(widget.recordingPath);
+
       final recording = Recording(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: _titleController.text.trim().isNotEmpty 
-            ? _titleController.text.trim() 
+        title: _titleController.text.trim().isNotEmpty
+            ? _titleController.text.trim()
             : 'Untitled Recording',
         filePath: widget.recordingPath,
         timestamp: DateTime.now(),
@@ -83,12 +90,22 @@ without having to listen to the entire audio file.''';
         transcript: _transcriptController.text.trim(),
         fileSizeKB: fileSizeKB,
       );
-      
+
       final success = await _storageService.saveRecording(recording);
-      
+
       if (success && mounted) {
-        Navigator.of(context).pop(true); // Return to home screen
-        Navigator.of(context).pop(true); // Close recording screen
+        // Show success message first
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recording saved successfully')),
+        );
+
+        // Small delay to ensure the recording is saved
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        // Navigate back to home screen and trigger refresh
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to save recording')),
@@ -122,24 +139,24 @@ without having to listen to the entire audio file.''';
           children: [
             // Playback controls
             _buildPlaybackSection(),
-            
+
             const SizedBox(height: 24),
-            
+
             // Title input
             _buildTitleSection(),
-            
+
             const SizedBox(height: 24),
-            
+
             // Transcript section
             _buildTranscriptSection(),
-            
+
             const SizedBox(height: 24),
-            
+
             // Tags section
             _buildTagsSection(),
-            
+
             const SizedBox(height: 32),
-            
+
             // Action buttons
             _buildActionButtons(),
           ],
@@ -196,8 +213,8 @@ without having to listen to the entire audio file.''';
         Text(
           'Title',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -218,8 +235,8 @@ without having to listen to the entire audio file.''';
         Text(
           'Transcript',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -229,7 +246,7 @@ without having to listen to the entire audio file.''';
             maxLines: null,
             expands: true,
             decoration: const InputDecoration(
-              hintText: 'Your transcript goes here...',
+              hintText: 'Add notes or transcript here (optional)',
               border: OutlineInputBorder(),
               alignLabelWithHint: true,
             ),
@@ -247,8 +264,8 @@ without having to listen to the entire audio file.''';
         Text(
           'How do you want to tag this?',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: 16),
         Wrap(
@@ -273,9 +290,9 @@ without having to listen to the entire audio file.''';
             );
           }).toList(),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Record more content button
         SizedBox(
           width: double.infinity,
@@ -283,7 +300,8 @@ without having to listen to the entire audio file.''';
             onPressed: () {
               // TODO: Implement record more content
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Record more content - Coming soon!')),
+                const SnackBar(
+                    content: Text('Record more content - Coming soon!')),
               );
             },
             icon: const Icon(Icons.add),
@@ -312,7 +330,7 @@ without having to listen to the entire audio file.''';
         Expanded(
           child: ElevatedButton.icon(
             onPressed: _isSaving ? null : _saveRecording,
-            icon: _isSaving 
+            icon: _isSaving
                 ? const SizedBox(
                     width: 16,
                     height: 16,
