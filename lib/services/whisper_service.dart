@@ -70,8 +70,6 @@ class WhisperService {
         audioPath,
       ));
 
-      print('Sending audio to Whisper API for transcription...');
-
       // Send request
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
@@ -80,15 +78,21 @@ class WhisperService {
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         final text = jsonResponse['text'] as String? ?? '';
-        print('Transcription successful (${text.length} characters)');
         return text;
       } else {
         // Parse error response
-        final errorBody = jsonDecode(response.body);
-        final errorMessage = errorBody['error']?['message'] ?? 'Unknown error';
-        throw WhisperException(
-          'Whisper API error (${response.statusCode}): $errorMessage',
-        );
+        try {
+          final errorBody = jsonDecode(response.body);
+          final errorMessage =
+              errorBody['error']?['message'] ?? 'Unknown error';
+          throw WhisperException(
+            'Whisper API error (${response.statusCode}): $errorMessage',
+          );
+        } catch (e) {
+          throw WhisperException(
+            'Whisper API error (${response.statusCode}): Failed to parse error response',
+          );
+        }
       }
     } on SocketException catch (e) {
       throw WhisperException(

@@ -276,7 +276,7 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
                   Text(
                     '${widget.duration.inMinutes}:${(widget.duration.inSeconds % 60).toString().padLeft(2, '0')}',
                     style: TextStyle(
-                      color: Colors.grey.withValues(alpha: 0.7),
+                      color: Colors.grey.withOpacity(0.7),
                     ),
                   ),
                 ],

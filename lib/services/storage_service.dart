@@ -14,22 +14,27 @@ class StorageService {
   final AudioService _audioService = AudioService();
 
   Future<List<Recording>> getRecordings() async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    // Check if this is first launch
-    final hasInitialized = prefs.getBool(_hasInitializedKey) ?? false;
-    if (!hasInitialized) {
-      // Create sample recordings for demo on first launch
-      await _createSampleRecordings();
-      await prefs.setBool(_hasInitializedKey, true);
+      // Check if this is first launch
+      final hasInitialized = prefs.getBool(_hasInitializedKey) ?? false;
+      if (!hasInitialized) {
+        // Create sample recordings for demo on first launch
+        await _createSampleRecordings();
+        await prefs.setBool(_hasInitializedKey, true);
+      }
+
+      final recordingsJson = prefs.getStringList(_recordingsKey) ?? [];
+
+      return recordingsJson
+          .map((json) => Recording.fromJson(jsonDecode(json)))
+          .toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    } catch (e) {
+      print('Error getting recordings: $e');
+      return [];
     }
-
-    final recordingsJson = prefs.getStringList(_recordingsKey) ?? [];
-
-    return recordingsJson
-        .map((json) => Recording.fromJson(jsonDecode(json)))
-        .toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
   Future<bool> saveRecording(Recording recording) async {
@@ -173,8 +178,13 @@ class StorageService {
 
   // OpenAI API Key Management
   Future<String?> getOpenAIApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_openaiApiKeyKey);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_openaiApiKeyKey);
+    } catch (e) {
+      print('Error getting OpenAI API key: $e');
+      return null;
+    }
   }
 
   Future<bool> saveOpenAIApiKey(String apiKey) async {
