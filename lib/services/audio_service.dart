@@ -124,8 +124,8 @@ class AudioService {
         print('Created recordings directory: ${recordingsDir.path}');
       }
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      // Use AAC format for better compatibility
-      final path = '${recordingsDir.path}/recording_$timestamp.aac';
+      // Use M4A format for better compatibility (works with Whisper API)
+      final path = '${recordingsDir.path}/recording_$timestamp.m4a';
       print('Generated recording path: $path');
       return path;
     } catch (e) {
@@ -167,10 +167,10 @@ class AudioService {
       _currentRecordingPath = await _getRecordingPath();
       print('Will record to: $_currentRecordingPath');
 
-      // Start recording with minimal configuration to avoid errors
+      // Start recording with M4A AAC format (compatible with Whisper API)
       await _recorder!.startRecorder(
         toFile: _currentRecordingPath,
-        codec: Codec.aacADTS,
+        codec: Codec.aacMP4,
       );
 
       _recordingStartTime = DateTime.now();
@@ -292,7 +292,7 @@ class AudioService {
 
       await _player!.startPlayer(
         fromURI: filePath,
-        codec: Codec.aacADTS,
+        codec: Codec.aacMP4,
         whenFinished: () {
           print('Playback finished');
         },
