@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:parachute/models/recording.dart';
 import 'package:parachute/services/audio_service.dart';
 import 'package:parachute/services/storage_service.dart';
+import 'package:parachute/services/whisper_service.dart';
+import 'package:parachute/screens/settings_screen.dart';
 
 class PostRecordingScreen extends StatefulWidget {
   final String recordingPath;
@@ -24,6 +26,7 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
   final TextEditingController _transcriptController = TextEditingController();
   final StorageService _storageService = StorageService();
   final AudioService _audioService = AudioService();
+  final WhisperService _whisperService = WhisperService();
 
   final List<String> _predefinedTags = [
     'Project A',
@@ -37,6 +40,7 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
   final Set<String> _selectedTags = {};
   bool _isPlaying = false;
   bool _isSaving = false;
+  bool _isTranscribing = false;
 
   @override
   void initState() {
@@ -65,6 +69,90 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
             setState(() => _isPlaying = false);
           }
         });
+      }
+    }
+  }
+
+  Future<void> _transcribeRecording() async {
+    if (_isTranscribing) return;
+
+    // Check if API key is configured
+    final isConfigured = await _whisperService.isConfigured();
+    if (!isConfigured) {
+      if (!mounted) return;
+
+      // Show dialog to navigate to settings
+      final goToSettings = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('API Key Required'),
+          content: const Text(
+            'To use transcription, you need to configure your OpenAI API key in Settings.\n\n'
+            'Would you like to go to Settings now?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Go to Settings'),
+            ),
+          ],
+        ),
+      );
+
+      if (goToSettings == true && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SettingsScreen(),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isTranscribing = true);
+
+    try {
+      final transcript = await _whisperService.transcribeAudio(
+        widget.recordingPath,
+      );
+
+      if (mounted) {
+        _transcriptController.text = transcript;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Transcription completed!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } on WhisperException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Transcription failed: ${e.message}'),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unexpected error: $e'),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isTranscribing = false);
       }
     }
   }
@@ -232,11 +320,33 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Transcript',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Transcript',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            ElevatedButton.icon(
+              onPressed: _isTranscribing ? null : _transcribeRecording,
+              icon: _isTranscribing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.auto_awesome, size: 18),
+              label: Text(_isTranscribing ? 'Transcribing...' : 'Transcribe'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
               ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         SizedBox(

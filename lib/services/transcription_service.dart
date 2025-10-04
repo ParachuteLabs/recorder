@@ -23,13 +23,20 @@ class TranscriptionService {
     if (_isInitialized) return true;
 
     try {
+      print('Requesting speech recognition permissions...');
       _isInitialized = await _speechToText.initialize(
         onStatus: (status) {
           print('Speech recognition status: $status');
+          if (status == 'notListening' && _isListening) {
+            print(
+                'Speech recognition stopped unexpectedly, may have timed out');
+          }
         },
         onError: (error) {
           print('Speech recognition error: ${error.errorMsg}');
+          print('Error type: ${error.permanent}');
         },
+        debugLogging: true,
       );
 
       if (_isInitialized) {
@@ -43,6 +50,9 @@ class TranscriptionService {
         // Check if the system locale is available
         final systemLocale = await _speechToText.systemLocale();
         print('System locale: ${systemLocale?.localeId}');
+      } else {
+        print(
+            'TranscriptionService initialization failed - permission denied or not available');
       }
 
       return _isInitialized;
@@ -60,9 +70,13 @@ class TranscriptionService {
       await initialize();
     }
 
-    if (!_isInitialized || _isListening) {
-      print(
-          'Cannot start listening: initialized=$_isInitialized, listening=$_isListening');
+    if (!_isInitialized) {
+      print('Cannot start listening: not initialized');
+      return;
+    }
+
+    if (_isListening) {
+      print('Already listening, skipping startListening call');
       return;
     }
 
@@ -90,8 +104,8 @@ class TranscriptionService {
             _restartListening(onResult: onResult, localeId: localeId);
           }
         },
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
+        listenFor: const Duration(minutes: 10),
+        pauseFor: const Duration(seconds: 10),
         partialResults: true,
         localeId: localeId,
         cancelOnError: false,
@@ -129,8 +143,8 @@ class TranscriptionService {
               _restartListening(onResult: onResult, localeId: localeId);
             }
           },
-          listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 3),
+          listenFor: const Duration(minutes: 10),
+          pauseFor: const Duration(seconds: 10),
           partialResults: true,
           localeId: localeId,
           cancelOnError: false,
@@ -161,6 +175,7 @@ class TranscriptionService {
 
     try {
       await _speechToText.stop();
+      _isListening = false;
       print('Paused listening for speech');
     } catch (e) {
       print('Error pausing speech recognition: $e');
@@ -171,9 +186,43 @@ class TranscriptionService {
     Function(String)? onResult,
     String? localeId,
   }) async {
-    if (!_isListening) return;
+    if (_isListening) return; // Already listening
 
-    await startListening(onResult: onResult, localeId: localeId);
+    // Don't clear transcription on resume, keep accumulating
+    if (_transcriptionController == null ||
+        _transcriptionController!.isClosed) {
+      _transcriptionController = StreamController<String>.broadcast();
+    }
+
+    try {
+      await _speechToText.listen(
+        onResult: (SpeechRecognitionResult result) {
+          // Append to existing transcription
+          final newWords = result.recognizedWords;
+          if (newWords.isNotEmpty) {
+            _transcription =
+                _transcription.isEmpty ? newWords : '$_transcription $newWords';
+            _transcriptionController?.add(_transcription);
+            onResult?.call(_transcription);
+          }
+
+          if (result.finalResult && _isListening) {
+            _restartListening(onResult: onResult, localeId: localeId);
+          }
+        },
+        listenFor: const Duration(minutes: 10),
+        pauseFor: const Duration(seconds: 10),
+        partialResults: true,
+        localeId: localeId,
+        cancelOnError: false,
+        listenMode: ListenMode.dictation,
+      );
+      _isListening = true;
+      print('Resumed listening for speech');
+    } catch (e) {
+      print('Error resuming speech recognition: $e');
+      _isListening = false;
+    }
   }
 
   String getFinalTranscription() {
