@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:parachute/services/audio_service.dart';
-import 'package:parachute/services/transcription_service.dart';
 import 'package:parachute/screens/post_recording_screen.dart';
 import 'package:parachute/widgets/recording_visualizer.dart';
 
@@ -14,7 +13,6 @@ class RecordingScreen extends StatefulWidget {
 
 class _RecordingScreenState extends State<RecordingScreen> {
   final AudioService _audioService = AudioService();
-  final TranscriptionService _transcriptionService = TranscriptionService();
   RecordingState _recordingState = RecordingState.stopped;
   Duration _recordingDuration = Duration.zero;
   Duration _pausedDuration = Duration.zero;
@@ -22,8 +20,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
   DateTime? _pauseStartTime;
   Timer? _timer;
   String? _recordingPath;
-  String _currentTranscription = '';
-  bool _transcriptionAvailable = false;
 
   @override
   void initState() {
@@ -35,7 +31,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
   void dispose() {
     _timer?.cancel();
     _audioService.dispose();
-    _transcriptionService.dispose();
     super.dispose();
   }
 
@@ -99,34 +94,19 @@ class _RecordingScreenState extends State<RecordingScreen> {
   }
 
   Future<void> _initializeTranscription() async {
-    try {
-      print('Attempting to initialize transcription service...');
-      final initialized = await _transcriptionService.initialize();
+    // NOTE: Real-time transcription is disabled due to microphone conflict.
+    // On Android, speech_to_text and flutter_sound cannot access the microphone
+    // simultaneously. iOS supports concurrent access but Android does not.
+    //
+    // Alternative solutions:
+    // 1. Use post-recording transcription with cloud APIs (Whisper, Google STT)
+    // 2. Use vosk_flutter for offline transcription with audio stream
+    // 3. Implement transcription after recording completes
+    //
+    // For now, transcription is left as a placeholder for future implementation.
 
-      if (initialized) {
-        print('Transcription service initialized successfully');
-        _transcriptionAvailable = true;
-
-        // Start listening for transcription
-        await _transcriptionService.startListening(
-          onResult: (text) {
-            if (mounted) {
-              setState(() {
-                _currentTranscription = text;
-              });
-            }
-          },
-        );
-        print('Transcription listening started');
-      } else {
-        print('Transcription service not available on this device');
-        _transcriptionAvailable = false;
-      }
-    } catch (e) {
-      print('Transcription error (non-fatal): $e');
-      _transcriptionAvailable = false;
-      // Don't show error to user - transcription is optional
-    }
+    print(
+        'Real-time transcription skipped - microphone conflict with audio recording');
   }
 
   void _startTimer() {
@@ -157,15 +137,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
         _pauseStartTime = DateTime.now();
         _timer?.cancel();
 
-        // Pause transcription if available
-        if (_transcriptionAvailable) {
-          try {
-            await _transcriptionService.pauseListening();
-          } catch (e) {
-            print('Error pausing transcription: $e');
-          }
-        }
-
         setState(() {
           _recordingState = RecordingState.paused;
         });
@@ -177,23 +148,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
         if (_pauseStartTime != null) {
           _pausedDuration += DateTime.now().difference(_pauseStartTime!);
           _pauseStartTime = null;
-        }
-
-        // Resume transcription if available
-        if (_transcriptionAvailable) {
-          try {
-            await _transcriptionService.resumeListening(
-              onResult: (text) {
-                if (mounted) {
-                  setState(() {
-                    _currentTranscription = text;
-                  });
-                }
-              },
-            );
-          } catch (e) {
-            print('Error resuming transcription: $e');
-          }
         }
 
         setState(() {
@@ -210,17 +164,8 @@ class _RecordingScreenState extends State<RecordingScreen> {
       _recordingState = RecordingState.stopped;
     });
 
-    // Stop transcription if available and get final text
+    // Transcription is currently disabled due to microphone conflicts
     String transcription = '';
-    if (_transcriptionAvailable) {
-      try {
-        await _transcriptionService.stopListening();
-        transcription = _transcriptionService.getFinalTranscription();
-        print('Final transcription: $transcription');
-      } catch (e) {
-        print('Error stopping transcription: $e');
-      }
-    }
 
     final path = await _audioService.stopRecording();
     if (path != null && mounted) {
@@ -337,60 +282,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
               ),
 
             const SizedBox(height: 20),
-
-            // Live transcription preview (only show if transcription is working)
-            if (_currentTranscription.isNotEmpty)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 32),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .surfaceVariant
-                      .withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color:
-                        Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                  ),
-                ),
-                constraints: const BoxConstraints(maxHeight: 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.mic,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Live Transcription',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        child: Text(
-                          _currentTranscription,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
             const Spacer(),
 

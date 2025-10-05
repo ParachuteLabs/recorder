@@ -3,6 +3,7 @@ import 'package:parachute/models/recording.dart';
 import 'package:parachute/services/storage_service.dart';
 import 'package:parachute/screens/recording_screen.dart';
 import 'package:parachute/screens/recording_detail_screen.dart';
+import 'package:parachute/screens/settings_screen.dart';
 import 'package:parachute/widgets/recording_tile.dart';
 import 'package:parachute/utils/sample_data.dart';
 
@@ -106,6 +107,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         title: const Text('Parachute'),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+            tooltip: 'Settings',
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

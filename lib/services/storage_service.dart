@@ -10,25 +10,31 @@ class StorageService {
 
   static const String _recordingsKey = 'recordings';
   static const String _hasInitializedKey = 'has_initialized';
+  static const String _openaiApiKeyKey = 'openai_api_key';
   final AudioService _audioService = AudioService();
 
   Future<List<Recording>> getRecordings() async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    // Check if this is first launch
-    final hasInitialized = prefs.getBool(_hasInitializedKey) ?? false;
-    if (!hasInitialized) {
-      // Create sample recordings for demo on first launch
-      await _createSampleRecordings();
-      await prefs.setBool(_hasInitializedKey, true);
+      // Check if this is first launch
+      final hasInitialized = prefs.getBool(_hasInitializedKey) ?? false;
+      if (!hasInitialized) {
+        // Create sample recordings for demo on first launch
+        await _createSampleRecordings();
+        await prefs.setBool(_hasInitializedKey, true);
+      }
+
+      final recordingsJson = prefs.getStringList(_recordingsKey) ?? [];
+
+      return recordingsJson
+          .map((json) => Recording.fromJson(jsonDecode(json)))
+          .toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    } catch (e) {
+      print('Error getting recordings: $e');
+      return [];
     }
-
-    final recordingsJson = prefs.getStringList(_recordingsKey) ?? [];
-
-    return recordingsJson
-        .map((json) => Recording.fromJson(jsonDecode(json)))
-        .toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
   Future<bool> saveRecording(Recording recording) async {
@@ -168,5 +174,41 @@ class StorageService {
     // Clear from storage
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_recordingsKey);
+  }
+
+  // OpenAI API Key Management
+  Future<String?> getOpenAIApiKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_openaiApiKeyKey);
+    } catch (e) {
+      print('Error getting OpenAI API key: $e');
+      return null;
+    }
+  }
+
+  Future<bool> saveOpenAIApiKey(String apiKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setString(_openaiApiKeyKey, apiKey.trim());
+    } catch (e) {
+      print('Error saving OpenAI API key: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteOpenAIApiKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.remove(_openaiApiKeyKey);
+    } catch (e) {
+      print('Error deleting OpenAI API key: $e');
+      return false;
+    }
+  }
+
+  Future<bool> hasOpenAIApiKey() async {
+    final apiKey = await getOpenAIApiKey();
+    return apiKey != null && apiKey.isNotEmpty;
   }
 }
