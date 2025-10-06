@@ -186,11 +186,11 @@ class StorageService {
     final audioPath = mdFile.path.replaceAll('.md', '.m4a');
 
     return Recording(
-      id: frontmatter['id'] ?? '',
-      title: frontmatter['title'] ?? 'Untitled',
+      id: frontmatter['id']?.toString() ?? '',
+      title: frontmatter['title']?.toString() ?? 'Untitled',
       filePath: audioPath,
-      timestamp: DateTime.parse(
-          frontmatter['created'] ?? DateTime.now().toIso8601String()),
+      timestamp: DateTime.parse(frontmatter['created']?.toString() ??
+          DateTime.now().toIso8601String()),
       duration: Duration(seconds: frontmatter['duration'] ?? 0),
       tags: (frontmatter['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       transcript: bodyContent,

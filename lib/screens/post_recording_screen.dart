@@ -166,8 +166,13 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
       final fileSizeKB =
           await _audioService.getFileSizeKB(widget.recordingPath);
 
+      // Extract recording ID from the file path
+      // Path format: /path/to/2025-10-06-1759784172526.m4a
+      final fileName = widget.recordingPath.split('/').last;
+      final recordingId = fileName.replaceAll('.m4a', '').split('-').last;
+
       final recording = Recording(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: recordingId,
         title: _titleController.text.trim().isNotEmpty
             ? _titleController.text.trim()
             : 'Untitled Recording',

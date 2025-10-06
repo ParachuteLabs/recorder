@@ -30,7 +30,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    _audioService.dispose();
+    // Don't dispose the AudioService singleton - it's shared across the app
     super.dispose();
   }
 
