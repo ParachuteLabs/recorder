@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:parachute/theme.dart';
+import 'package:flutter/material.dart';
 import 'package:parachute/screens/home_screen.dart';
+import 'package:parachute/theme.dart';
 
 void main() {
   runApp(const MyApp());

@@ -37,7 +37,6 @@ class _PlaybackControlsState extends State<PlaybackControls> {
 
   @override
   void dispose() {
-    // Clean up without calling setState
     _progressTimer?.cancel();
     if (_isPlaying) {
       _audioService.stopPlayback();

@@ -5,7 +5,6 @@ import 'package:parachute/screens/recording_screen.dart';
 import 'package:parachute/screens/recording_detail_screen.dart';
 import 'package:parachute/screens/settings_screen.dart';
 import 'package:parachute/widgets/recording_tile.dart';
-import 'package:parachute/utils/sample_data.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -50,27 +49,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _loadRecordings() async {
     final recordings = await _storageService.getRecordings();
-
-    // Add sample data if no recordings exist (for demo purposes)
-    if (recordings.isEmpty) {
-      final sampleRecordings = SampleData.getSampleRecordings();
-      for (final recording in sampleRecordings) {
-        await _storageService.saveRecording(recording);
-      }
-      final updatedRecordings = await _storageService.getRecordings();
-      if (mounted) {
-        setState(() {
-          _recordings = updatedRecordings;
-          _isLoading = false;
-        });
-      }
-    } else {
-      if (mounted) {
-        setState(() {
-          _recordings = recordings;
-          _isLoading = false;
-        });
-      }
+    if (mounted) {
+      setState(() {
+        _recordings = recordings;
+        _isLoading = false;
+      });
     }
   }
 
