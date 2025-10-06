@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:parachute/repositories/recording_repository.dart';
 import 'package:parachute/services/audio_service.dart';
 import 'package:parachute/services/storage_service.dart';
 import 'package:parachute/services/whisper_service.dart';
@@ -40,4 +41,13 @@ final whisperServiceProvider = Provider<WhisperService>((ref) {
   // Ensure StorageService is initialized first
   ref.watch(storageServiceProvider);
   return WhisperService();
+});
+
+/// Provider for RecordingRepository
+///
+/// This provides data access for recordings following the Repository Pattern.
+/// It separates data access logic from business logic.
+final recordingRepositoryProvider = Provider<RecordingRepository>((ref) {
+  final storageService = ref.watch(storageServiceProvider);
+  return RecordingRepository(storageService);
 });
