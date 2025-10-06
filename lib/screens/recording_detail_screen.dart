@@ -1,10 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:parachute/providers/service_providers.dart';
 import 'package:flutter/services.dart';
 import 'package:parachute/models/recording.dart';
-import 'package:parachute/services/storage_service.dart';
 import 'package:parachute/widgets/playback_controls.dart';
 
-class RecordingDetailScreen extends StatefulWidget {
+class RecordingDetailScreen extends ConsumerStatefulWidget {
   final Recording recording;
 
   const RecordingDetailScreen({
@@ -13,11 +14,10 @@ class RecordingDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<RecordingDetailScreen> createState() => _RecordingDetailScreenState();
+  ConsumerState<RecordingDetailScreen> createState() => _RecordingDetailScreenState();
 }
 
-class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
-  final StorageService _storageService = StorageService();
+class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
   late Recording _recording;
 
   @override
@@ -110,7 +110,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               );
 
               final success =
-                  await _storageService.updateRecording(updatedRecording);
+                  await ref.read(storageServiceProvider).updateRecording(updatedRecording);
               if (success && mounted) {
                 setState(() {
                   _recording = updatedRecording;
@@ -191,7 +191,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               onPressed: () async {
                 Navigator.pop(context);
                 final success =
-                    await _storageService.deleteRecording(_recording.id);
+                    await ref.read(storageServiceProvider).deleteRecording(_recording.id);
                 if (success && mounted) {
                   Navigator.pop(context, true);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -233,7 +233,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               duration: _recording.duration,
               onDelete: () async {
                 final success =
-                    await _storageService.deleteRecording(_recording.id);
+                    await ref.read(storageServiceProvider).deleteRecording(_recording.id);
                 if (success && mounted) {
                   Navigator.of(context).pop(true);
                 }

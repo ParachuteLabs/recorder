@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:parachute/models/recording.dart';
 import 'package:parachute/services/storage_service.dart';
 
 enum RecordingState {

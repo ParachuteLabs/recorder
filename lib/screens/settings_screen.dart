@@ -1,19 +1,18 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:parachute/providers/service_providers.dart';
 import 'package:flutter/services.dart';
-import 'package:parachute/services/storage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  final StorageService _storageService = StorageService();
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
   bool _isLoading = true;
   bool _isSaving = false;
@@ -36,13 +35,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadApiKey() async {
     setState(() => _isLoading = true);
 
-    final apiKey = await _storageService.getOpenAIApiKey();
+    final apiKey = await ref.read(storageServiceProvider).getOpenAIApiKey();
     if (apiKey != null && apiKey.isNotEmpty) {
       _apiKeyController.text = apiKey;
       _hasApiKey = true;
     }
 
-    _syncFolderPath = await _storageService.getSyncFolderPath();
+    _syncFolderPath = await ref.read(storageServiceProvider).getSyncFolderPath();
 
     setState(() => _isLoading = false);
   }
@@ -73,7 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() => _isSaving = true);
 
-    final success = await _storageService.saveOpenAIApiKey(apiKey);
+    final success = await ref.read(storageServiceProvider).saveOpenAIApiKey(apiKey);
 
     setState(() => _isSaving = false);
 
@@ -123,7 +122,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (confirmed == true) {
-      final success = await _storageService.deleteOpenAIApiKey();
+      final success = await ref.read(storageServiceProvider).deleteOpenAIApiKey();
       if (success) {
         _apiKeyController.clear();
         setState(() => _hasApiKey = false);
@@ -150,7 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (selectedDirectory != null) {
       final success =
-          await _storageService.setSyncFolderPath(selectedDirectory);
+          await ref.read(storageServiceProvider).setSyncFolderPath(selectedDirectory);
       if (success) {
         setState(() => _syncFolderPath = selectedDirectory);
         if (mounted) {

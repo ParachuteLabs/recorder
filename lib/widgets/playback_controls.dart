@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:parachute/services/audio_service.dart';
 import 'dart:async';
 
-class PlaybackControls extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:parachute/providers/service_providers.dart';
+
+class PlaybackControls extends ConsumerStatefulWidget {
   final String filePath;
   final Duration duration;
   final VoidCallback? onDelete;
@@ -15,11 +17,10 @@ class PlaybackControls extends StatefulWidget {
   });
 
   @override
-  State<PlaybackControls> createState() => _PlaybackControlsState();
+  ConsumerState<PlaybackControls> createState() => _PlaybackControlsState();
 }
 
-class _PlaybackControlsState extends State<PlaybackControls> {
-  final AudioService _audioService = AudioService();
+class _PlaybackControlsState extends ConsumerState<PlaybackControls> {
   bool _isPlaying = false;
   bool _isPaused = false;
   Duration _currentPosition = Duration.zero;
@@ -32,29 +33,33 @@ class _PlaybackControlsState extends State<PlaybackControls> {
   }
 
   Future<void> _initializeAudio() async {
-    await _audioService.initialize();
+    final audioService = ref.read(audioServiceProvider);
+    await audioService.initialize();
   }
 
   @override
   void dispose() {
     _progressTimer?.cancel();
     if (_isPlaying) {
-      _audioService.stopPlayback();
+      final audioService = ref.read(audioServiceProvider);
+      audioService.stopPlayback();
     }
     super.dispose();
   }
 
   Future<void> _togglePlayback() async {
+    final audioService = ref.read(audioServiceProvider);
+
     if (_isPlaying && !_isPaused) {
       // Pause playback
-      await _audioService.pausePlayback();
+      await audioService.pausePlayback();
       setState(() {
         _isPaused = true;
       });
       _progressTimer?.cancel();
     } else if (_isPaused) {
       // Resume playback
-      await _audioService.resumePlayback();
+      await audioService.resumePlayback();
       setState(() {
         _isPaused = false;
       });
@@ -71,7 +76,7 @@ class _PlaybackControlsState extends State<PlaybackControls> {
         return;
       }
 
-      final success = await _audioService.playRecording(widget.filePath);
+      final success = await audioService.playRecording(widget.filePath);
       if (success) {
         setState(() {
           _isPlaying = true;
@@ -79,7 +84,6 @@ class _PlaybackControlsState extends State<PlaybackControls> {
           _currentPosition = Duration.zero;
         });
         _startProgressTimer();
-
         // Auto-stop when playback completes
         Future.delayed(widget.duration, () {
           if (_isPlaying && mounted) {
@@ -115,9 +119,11 @@ class _PlaybackControlsState extends State<PlaybackControls> {
   }
 
   Future<void> _stopPlayback() async {
+    final audioService = ref.read(audioServiceProvider);
+
     _progressTimer?.cancel();
     if (_isPlaying) {
-      await _audioService.stopPlayback();
+      await audioService.stopPlayback();
     }
     if (mounted) {
       setState(() {
@@ -166,7 +172,6 @@ class _PlaybackControlsState extends State<PlaybackControls> {
             ),
           ),
           const SizedBox(height: 8),
-
           // Time display
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -182,7 +187,6 @@ class _PlaybackControlsState extends State<PlaybackControls> {
             ],
           ),
           const SizedBox(height: 8),
-
           // Control buttons
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -194,7 +198,6 @@ class _PlaybackControlsState extends State<PlaybackControls> {
                   onPressed: _stopPlayback,
                   tooltip: 'Stop',
                 ),
-
               // Play/Pause button
               IconButton(
                 icon: Icon(
@@ -207,7 +210,6 @@ class _PlaybackControlsState extends State<PlaybackControls> {
                 color: Theme.of(context).colorScheme.primary,
                 tooltip: _isPlaying && !_isPaused ? 'Pause' : 'Play',
               ),
-
               // Delete button
               if (widget.onDelete != null)
                 IconButton(
