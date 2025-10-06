@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter_sound/flutter_sound.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:parachute/models/recording.dart';
+import 'package:parachute/services/storage_service.dart';
 
 enum RecordingState {
   stopped,
@@ -16,21 +17,22 @@ class AudioService {
   factory AudioService() => _instance;
   AudioService._internal();
 
-  FlutterSoundRecorder? _recorder;
-  FlutterSoundPlayer? _player;
+  final StorageService _storageService = StorageService();
+  final AudioRecorder _recorder = AudioRecorder();
+  final AudioPlayer _player = AudioPlayer();
+
   RecordingState _recordingState = RecordingState.stopped;
   String? _currentRecordingPath;
   DateTime? _recordingStartTime;
   Duration _recordingDuration = Duration.zero;
   Duration _pausedDuration = Duration.zero;
   DateTime? _pauseStartTime;
-  StreamSubscription? _recordingDataSubscription;
-  StreamSubscription? _playerSubscription;
+  Timer? _durationTimer;
   bool _isInitialized = false;
 
   RecordingState get recordingState => _recordingState;
   Duration get recordingDuration => _recordingDuration;
-  bool get isPlaying => _player?.isPlaying ?? false;
+  bool get isPlaying => _player.playing;
 
   Future<void> initialize() async {
     if (_isInitialized) {
@@ -40,22 +42,13 @@ class AudioService {
 
     try {
       print('Initializing AudioService...');
-      _recorder = FlutterSoundRecorder();
-      _player = FlutterSoundPlayer();
 
-      // Open the audio session with proper error handling
-      await _recorder!.openRecorder();
-      print('Recorder opened successfully');
-
-      await _player!.openPlayer();
-      print('Player opened successfully');
-
-      // Set up recording data stream
-      _recordingDataSubscription = _recorder!.onProgress!.listen((event) {
-        if (_recordingState == RecordingState.recording) {
-          _recordingDuration = event.duration ?? Duration.zero;
-        }
-      });
+      // Check if recording is supported
+      if (await _recorder.hasPermission()) {
+        print('Recording permissions granted');
+      } else {
+        print('Recording permissions not granted');
+      }
 
       _isInitialized = true;
       print('AudioService initialized successfully');
@@ -68,64 +61,76 @@ class AudioService {
   }
 
   Future<void> dispose() async {
-    await _recordingDataSubscription?.cancel();
-    await _playerSubscription?.cancel();
-    await _recorder?.closeRecorder();
-    await _player?.closePlayer();
-    _recorder = null;
-    _player = null;
+    _durationTimer?.cancel();
+    await _recorder.dispose();
+    await _player.dispose();
     _isInitialized = false;
     print('AudioService disposed');
   }
 
   Future<bool> requestPermissions() async {
     try {
-      if (Platform.isIOS) {
-        final micPermission = await Permission.microphone.request();
-        print('iOS Microphone permission: $micPermission');
-        return micPermission.isGranted;
-      } else if (Platform.isAndroid) {
-        // Request microphone permission
-        final micPermission = await Permission.microphone.request();
-        print('Android Microphone permission: $micPermission');
+      // Use the record package's built-in permission handling
+      // which works across all platforms including macOS
+      final hasPermission = await _recorder.hasPermission();
+      print('Recording permission check: $hasPermission');
 
-        if (!micPermission.isGranted) {
-          // Check if permission is permanently denied
-          if (micPermission.isPermanentlyDenied) {
-            print(
-                'Microphone permission permanently denied. Opening settings...');
-            await openAppSettings();
+      if (!hasPermission) {
+        print('Microphone permission denied');
+
+        // On Android, try to open settings if permission is denied
+        if (Platform.isAndroid) {
+          try {
+            final micPermission = await Permission.microphone.status;
+            if (micPermission.isPermanentlyDenied) {
+              print('Opening app settings for permission...');
+              await openAppSettings();
+            }
+          } catch (e) {
+            print('Could not open settings: $e');
           }
-          return false;
         }
 
-        // For Android 13+ we might need notification permission for background recording
-        if (await Permission.notification.isDenied) {
-          final notificationPermission =
-              await Permission.notification.request();
-          print('Android Notification permission: $notificationPermission');
-        }
-
-        return true;
+        return false;
       }
-      return true; // For other platforms
+
+      // For Android 13+, also check notification permission for background recording
+      if (Platform.isAndroid) {
+        try {
+          if (await Permission.notification.isDenied) {
+            final notificationPermission =
+                await Permission.notification.request();
+            print('Android Notification permission: $notificationPermission');
+          }
+        } catch (e) {
+          print('Could not request notification permission: $e');
+          // Not critical, continue anyway
+        }
+      }
+
+      return true;
     } catch (e) {
       print('Error requesting permissions: $e');
-      return false;
+      // If there's an error but the recorder says it has permission, trust it
+      try {
+        return await _recorder.hasPermission();
+      } catch (e2) {
+        print('Fallback permission check failed: $e2');
+        return false;
+      }
     }
   }
 
-  Future<String> _getRecordingPath() async {
+  Future<String> _getRecordingPath(String recordingId) async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final recordingsDir = Directory('${directory.path}/recordings');
-      if (!await recordingsDir.exists()) {
-        await recordingsDir.create(recursive: true);
-        print('Created recordings directory: ${recordingsDir.path}');
-      }
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final syncFolder = await _storageService.getSyncFolderPath();
+
+      final now = DateTime.now();
+      final dateStr =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
       // Use M4A format for better compatibility (works with Whisper API)
-      final path = '${recordingsDir.path}/recording_$timestamp.m4a';
+      final path = '$syncFolder/$dateStr-$recordingId.m4a';
       print('Generated recording path: $path');
       return path;
     } catch (e) {
@@ -134,9 +139,18 @@ class AudioService {
     }
   }
 
+  void _startDurationTimer() {
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_recordingState == RecordingState.recording &&
+          _recordingStartTime != null) {
+        _recordingDuration =
+            DateTime.now().difference(_recordingStartTime!) - _pausedDuration;
+      }
+    });
+  }
+
   Future<bool> startRecording() async {
     print('startRecording called, current state: $_recordingState');
-
     if (_recordingState != RecordingState.stopped) {
       print('Cannot start recording: state is $_recordingState');
       return false;
@@ -152,50 +166,51 @@ class AudioService {
 
     try {
       // Ensure recorder is properly initialized
-      if (!_isInitialized || _recorder == null) {
+      if (!_isInitialized) {
         print('Recorder not initialized, initializing now...');
         await initialize();
       }
 
-      // Check if recorder is in a valid state
-      if (_recorder!.isRecording) {
+      // Check if already recording
+      if (await _recorder.isRecording()) {
         print('Recorder is already recording');
         return false;
       }
 
-      // Generate recording path
-      _currentRecordingPath = await _getRecordingPath();
+      // Generate recording ID and path
+      print('Generating recording ID...');
+      final recordingId = DateTime.now().millisecondsSinceEpoch.toString();
+      print('Recording ID: $recordingId');
+
+      print('Getting recording path...');
+      _currentRecordingPath = await _getRecordingPath(recordingId);
       print('Will record to: $_currentRecordingPath');
 
       // Start recording with M4A AAC format (compatible with Whisper API)
-      await _recorder!.startRecorder(
-        toFile: _currentRecordingPath,
-        codec: Codec.aacMP4,
+      print('Starting recorder...');
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          bitRate: 128000,
+          sampleRate: 44100,
+        ),
+        path: _currentRecordingPath!,
       );
+      print('Recorder.start() completed');
 
       _recordingStartTime = DateTime.now();
       _recordingState = RecordingState.recording;
       _recordingDuration = Duration.zero;
       _pausedDuration = Duration.zero;
+      _startDurationTimer();
 
       print('Recording started successfully');
       return true;
     } catch (e, stackTrace) {
       print('Error starting recording: $e');
       print('Stack trace: $stackTrace');
-
-      // Reset state on error
       _recordingState = RecordingState.stopped;
       _currentRecordingPath = null;
-
-      // Try to reinitialize for next attempt
-      try {
-        await dispose();
-        await initialize();
-      } catch (reinitError) {
-        print('Error reinitializing after failure: $reinitError');
-      }
-
       return false;
     }
   }
@@ -204,9 +219,10 @@ class AudioService {
     if (_recordingState != RecordingState.recording) return false;
 
     try {
-      await _recorder!.pauseRecorder();
+      await _recorder.pause();
       _recordingState = RecordingState.paused;
       _pauseStartTime = DateTime.now();
+      _durationTimer?.cancel();
       print('Recording paused');
       return true;
     } catch (e) {
@@ -219,7 +235,7 @@ class AudioService {
     if (_recordingState != RecordingState.paused) return false;
 
     try {
-      await _recorder!.resumeRecorder();
+      await _recorder.resume();
       _recordingState = RecordingState.recording;
 
       // Add the paused duration to total paused time
@@ -228,6 +244,7 @@ class AudioService {
         _pauseStartTime = null;
       }
 
+      _startDurationTimer();
       print('Recording resumed');
       return true;
     } catch (e) {
@@ -240,10 +257,10 @@ class AudioService {
     if (_recordingState == RecordingState.stopped) return null;
 
     try {
-      await _recorder!.stopRecorder();
-      _recordingState = RecordingState.stopped;
+      _durationTimer?.cancel();
 
-      final path = _currentRecordingPath;
+      final path = await _recorder.stop();
+      _recordingState = RecordingState.stopped;
       _currentRecordingPath = null;
       _recordingStartTime = null;
       _pauseStartTime = null;
@@ -266,6 +283,7 @@ class AudioService {
     } catch (e) {
       print('Error stopping recording: $e');
       _recordingState = RecordingState.stopped;
+      _durationTimer?.cancel();
       return null;
     }
   }
@@ -283,42 +301,21 @@ class AudioService {
         return false;
       }
 
-      // Ensure player is initialized
-      if (_player == null || !_isInitialized) {
-        print('Player not initialized, initializing now...');
-        _player = FlutterSoundPlayer();
-        await _player!.openPlayer();
-      }
-
-      await _player!.startPlayer(
-        fromURI: filePath,
-        codec: Codec.aacMP4,
-        whenFinished: () {
-          print('Playback finished');
-        },
-      );
+      await _player.setFilePath(filePath);
+      await _player.play();
 
       print('Playing recording: $filePath');
       return true;
     } catch (e, stackTrace) {
       print('Error playing recording: $e');
       print('Stack trace: $stackTrace');
-
-      // Try to reinitialize player for next attempt
-      try {
-        _player = FlutterSoundPlayer();
-        await _player!.openPlayer();
-      } catch (reinitError) {
-        print('Error reinitializing player: $reinitError');
-      }
-
       return false;
     }
   }
 
   Future<bool> stopPlayback() async {
     try {
-      await _player!.stopPlayer();
+      await _player.stop();
       print('Playback stopped');
       return true;
     } catch (e) {
@@ -329,7 +326,7 @@ class AudioService {
 
   Future<bool> pausePlayback() async {
     try {
-      await _player!.pausePlayer();
+      await _player.pause();
       return true;
     } catch (e) {
       print('Error pausing playback: $e');
@@ -339,7 +336,7 @@ class AudioService {
 
   Future<bool> resumePlayback() async {
     try {
-      await _player!.resumePlayer();
+      await _player.play();
       return true;
     } catch (e) {
       print('Error resuming playback: $e');
@@ -354,9 +351,8 @@ class AudioService {
         return null;
       }
 
-      // For now, return null as flutter_sound v9 doesn't have a direct duration method
-      // The actual duration is captured during recording
-      return null;
+      await _player.setFilePath(filePath);
+      return _player.duration;
     } catch (e) {
       print('Error getting recording duration: $e');
       return null;
@@ -390,6 +386,7 @@ class AudioService {
         print('Deleted recording file: $filePath');
         return true;
       }
+
       print('File not found for deletion: $filePath');
       return false;
     } catch (e) {

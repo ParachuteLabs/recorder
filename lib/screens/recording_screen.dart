@@ -293,6 +293,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
                 children: [
                   // Pause/Resume button
                   FloatingActionButton(
+                    heroTag: 'pauseButton',
                     onPressed: _recordingState != RecordingState.stopped
                         ? _pauseRecording
                         : null,
@@ -309,6 +310,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
 
                   // Stop button
                   FloatingActionButton(
+                    heroTag: 'stopButton',
                     onPressed: _recordingState != RecordingState.stopped
                         ? _stopRecording
                         : null,

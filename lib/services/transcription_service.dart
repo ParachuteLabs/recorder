@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'package:speech_to_text/speech_to_text.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
+// Note: speech_to_text dependency removed - using OpenAI Whisper API instead
+// import 'package:speech_to_text/speech_to_text.dart';
+// import 'package:speech_to_text/speech_recognition_result.dart';
 
 class TranscriptionService {
   static final TranscriptionService _instance =

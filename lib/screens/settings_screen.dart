@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:parachute/services/storage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,6 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isSaving = false;
   bool _obscureApiKey = true;
   bool _hasApiKey = false;
+  String _syncFolderPath = '';
 
   @override
   void initState() {
@@ -38,6 +41,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _apiKeyController.text = apiKey;
       _hasApiKey = true;
     }
+
+    _syncFolderPath = await _storageService.getSyncFolderPath();
 
     setState(() => _isLoading = false);
   }
@@ -140,6 +145,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _chooseSyncFolder() async {
+    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+
+    if (selectedDirectory != null) {
+      final success =
+          await _storageService.setSyncFolderPath(selectedDirectory);
+      if (success) {
+        setState(() => _syncFolderPath = selectedDirectory);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Sync folder updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to update sync folder'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,7 +186,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Header
+                // Sync Folder Section
+                const Text(
+                  'Sync Folder',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Choose where to store your recordings for syncing with iCloud, Syncthing, etc.',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue, width: 2),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.folder_open, color: Colors.blue[700]),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Current folder',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _syncFolderPath,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: _chooseSyncFolder,
+                        icon: const Icon(Icons.folder),
+                        label: const Text('Choose Folder'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 32),
+                // OpenAI API Header
                 const Text(
                   'OpenAI API Configuration',
                   style: TextStyle(

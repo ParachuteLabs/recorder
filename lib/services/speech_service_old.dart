@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:speech_to_text/speech_to_text.dart';
+// Note: speech_to_text dependency removed - using OpenAI Whisper API instead
+// import 'package:speech_to_text/speech_recognition_result.dart';
+// import 'package:speech_to_text/speech_to_text.dart';
 
 class SpeechService {
   final SpeechToText _speechToText = SpeechToText();
@@ -114,7 +115,8 @@ class SpeechService {
   /// Handle speech recognition results
   void _onSpeechResult(SpeechRecognitionResult result) {
     _lastWords = result.recognizedWords;
-    debugPrint('Recognition result: "$_lastWords" (final: ${result.finalResult}, confidence: ${result.confidence})');
+    debugPrint(
+        'Recognition result: "$_lastWords" (final: ${result.finalResult}, confidence: ${result.confidence})');
 
     if (_onResult != null) {
       _onResult!(_lastWords);
