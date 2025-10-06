@@ -69,7 +69,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
           }
         }
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

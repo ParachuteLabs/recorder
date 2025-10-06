@@ -98,7 +98,7 @@ class WhisperService {
       throw WhisperException(
         'Network error: Please check your internet connection',
       );
-    } on FormatException catch (e) {
+    } on FormatException {
       throw WhisperException(
         'Invalid response from Whisper API: ${e.message}',
       );

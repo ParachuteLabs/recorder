@@ -199,7 +199,9 @@ class _PostRecordingScreenState extends ConsumerState<PostRecordingScreen> {
 
         // Navigate back to home screen and trigger refresh
         if (mounted) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
+          if (!mounted) return;
+        final navigator = Navigator.of(context);
+        navigator.popUntil((route) => route.isFirst);
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -283,7 +285,7 @@ class _PostRecordingScreenState extends ConsumerState<PostRecordingScreen> {
                   Text(
                     '${widget.duration.inMinutes}:${(widget.duration.inSeconds % 60).toString().padLeft(2, '0')}',
                     style: TextStyle(
-                      color: Colors.grey.withOpacity(0.7),
+                      color: Colors.grey.withValues(alpha: 0.7),
                     ),
                   ),
                 ],

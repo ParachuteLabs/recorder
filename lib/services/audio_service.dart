@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:record/record.dart';
@@ -35,25 +36,25 @@ class AudioService {
 
   Future<void> initialize() async {
     if (_isInitialized) {
-      print('AudioService already initialized');
+      debugPrint('AudioService already initialized');
       return;
     }
 
     try {
-      print('Initializing AudioService...');
+      debugPrint('Initializing AudioService...');
 
       // Check if recording is supported
       if (await _recorder.hasPermission()) {
-        print('Recording permissions granted');
+        debugPrint('Recording permissions granted');
       } else {
-        print('Recording permissions not granted');
+        debugPrint('Recording permissions not granted');
       }
 
       _isInitialized = true;
-      print('AudioService initialized successfully');
+      debugPrint('AudioService initialized successfully');
     } catch (e, stackTrace) {
-      print('Error initializing AudioService: $e');
-      print('Stack trace: $stackTrace');
+      debugPrint('Error initializing AudioService: $e');
+      debugPrint('Stack trace: $stackTrace');
       _isInitialized = false;
       rethrow;
     }
@@ -64,7 +65,7 @@ class AudioService {
     await _recorder.dispose();
     await _player.dispose();
     _isInitialized = false;
-    print('AudioService disposed');
+    debugPrint('AudioService disposed');
   }
 
   Future<bool> requestPermissions() async {
@@ -72,21 +73,21 @@ class AudioService {
       // Use the record package's built-in permission handling
       // which works across all platforms including macOS
       final hasPermission = await _recorder.hasPermission();
-      print('Recording permission check: $hasPermission');
+      debugPrint('Recording permission check: $hasPermission');
 
       if (!hasPermission) {
-        print('Microphone permission denied');
+        debugPrint('Microphone permission denied');
 
         // On Android, try to open settings if permission is denied
         if (Platform.isAndroid) {
           try {
             final micPermission = await Permission.microphone.status;
             if (micPermission.isPermanentlyDenied) {
-              print('Opening app settings for permission...');
+              debugPrint('Opening app settings for permission...');
               await openAppSettings();
             }
           } catch (e) {
-            print('Could not open settings: $e');
+            debugPrint('Could not open settings: $e');
           }
         }
 
@@ -99,22 +100,22 @@ class AudioService {
           if (await Permission.notification.isDenied) {
             final notificationPermission =
                 await Permission.notification.request();
-            print('Android Notification permission: $notificationPermission');
+            debugPrint('Android Notification permission: $notificationPermission');
           }
         } catch (e) {
-          print('Could not request notification permission: $e');
+          debugPrint('Could not request notification permission: $e');
           // Not critical, continue anyway
         }
       }
 
       return true;
     } catch (e) {
-      print('Error requesting permissions: $e');
+      debugPrint('Error requesting permissions: $e');
       // If there's an error but the recorder says it has permission, trust it
       try {
         return await _recorder.hasPermission();
       } catch (e2) {
-        print('Fallback permission check failed: $e2');
+        debugPrint('Fallback permission check failed: $e2');
         return false;
       }
     }
@@ -130,10 +131,10 @@ class AudioService {
 
       // Use M4A format for better compatibility (works with Whisper API)
       final path = '$syncFolder/$dateStr-$recordingId.m4a';
-      print('Generated recording path: $path');
+      debugPrint('Generated recording path: $path');
       return path;
     } catch (e) {
-      print('Error getting recording path: $e');
+      debugPrint('Error getting recording path: $e');
       rethrow;
     }
   }
@@ -149,44 +150,44 @@ class AudioService {
   }
 
   Future<bool> startRecording() async {
-    print('startRecording called, current state: $_recordingState');
+    debugPrint('startRecording called, current state: $_recordingState');
     if (_recordingState != RecordingState.stopped) {
-      print('Cannot start recording: state is $_recordingState');
+      debugPrint('Cannot start recording: state is $_recordingState');
       return false;
     }
 
     // Check and request permissions
     final hasPermission = await requestPermissions();
-    print('Permission check result: $hasPermission');
+    debugPrint('Permission check result: $hasPermission');
     if (!hasPermission) {
-      print('Permission denied, cannot start recording');
+      debugPrint('Permission denied, cannot start recording');
       return false;
     }
 
     try {
       // Ensure recorder is properly initialized
       if (!_isInitialized) {
-        print('Recorder not initialized, initializing now...');
+        debugPrint('Recorder not initialized, initializing now...');
         await initialize();
       }
 
       // Check if already recording
       if (await _recorder.isRecording()) {
-        print('Recorder is already recording');
+        debugPrint('Recorder is already recording');
         return false;
       }
 
       // Generate recording ID and path
-      print('Generating recording ID...');
+      debugPrint('Generating recording ID...');
       final recordingId = DateTime.now().millisecondsSinceEpoch.toString();
-      print('Recording ID: $recordingId');
+      debugPrint('Recording ID: $recordingId');
 
-      print('Getting recording path...');
+      debugPrint('Getting recording path...');
       _currentRecordingPath = await _getRecordingPath(recordingId);
-      print('Will record to: $_currentRecordingPath');
+      debugPrint('Will record to: $_currentRecordingPath');
 
       // Start recording with M4A AAC format (compatible with Whisper API)
-      print('Starting recorder...');
+      debugPrint('Starting recorder...');
       await _recorder.start(
         const RecordConfig(
           encoder: AudioEncoder.aacLc,
@@ -195,7 +196,7 @@ class AudioService {
         ),
         path: _currentRecordingPath!,
       );
-      print('Recorder.start() completed');
+      debugPrint('Recorder.start() completed');
 
       _recordingStartTime = DateTime.now();
       _recordingState = RecordingState.recording;
@@ -203,11 +204,11 @@ class AudioService {
       _pausedDuration = Duration.zero;
       _startDurationTimer();
 
-      print('Recording started successfully');
+      debugPrint('Recording started successfully');
       return true;
     } catch (e, stackTrace) {
-      print('Error starting recording: $e');
-      print('Stack trace: $stackTrace');
+      debugPrint('Error starting recording: $e');
+      debugPrint('Stack trace: $stackTrace');
       _recordingState = RecordingState.stopped;
       _currentRecordingPath = null;
       return false;
@@ -222,10 +223,10 @@ class AudioService {
       _recordingState = RecordingState.paused;
       _pauseStartTime = DateTime.now();
       _durationTimer?.cancel();
-      print('Recording paused');
+      debugPrint('Recording paused');
       return true;
     } catch (e) {
-      print('Error pausing recording: $e');
+      debugPrint('Error pausing recording: $e');
       return false;
     }
   }
@@ -244,10 +245,10 @@ class AudioService {
       }
 
       _startDurationTimer();
-      print('Recording resumed');
+      debugPrint('Recording resumed');
       return true;
     } catch (e) {
-      print('Error resuming recording: $e');
+      debugPrint('Error resuming recording: $e');
       return false;
     }
   }
@@ -270,17 +271,17 @@ class AudioService {
         final file = File(path);
         if (await file.exists()) {
           final size = await file.length();
-          print('Recording stopped and saved: $path (size: ${size / 1024}KB)');
+          debugPrint('Recording stopped and saved: $path (size: ${size / 1024}KB)');
           return path;
         } else {
-          print('Recording file not found at: $path');
+          debugPrint('Recording file not found at: $path');
         }
       }
 
-      print('Recording stopped but file not found');
+      debugPrint('Recording stopped but file not found');
       return null;
     } catch (e) {
-      print('Error stopping recording: $e');
+      debugPrint('Error stopping recording: $e');
       _recordingState = RecordingState.stopped;
       _durationTimer?.cancel();
       return null;
@@ -290,24 +291,24 @@ class AudioService {
   Future<bool> playRecording(String filePath) async {
     try {
       if (filePath.isEmpty) {
-        print('Cannot play: empty file path');
+        debugPrint('Cannot play: empty file path');
         return false;
       }
 
       final file = File(filePath);
       if (!await file.exists()) {
-        print('File not found: $filePath');
+        debugPrint('File not found: $filePath');
         return false;
       }
 
       await _player.setFilePath(filePath);
       await _player.play();
 
-      print('Playing recording: $filePath');
+      debugPrint('Playing recording: $filePath');
       return true;
     } catch (e, stackTrace) {
-      print('Error playing recording: $e');
-      print('Stack trace: $stackTrace');
+      debugPrint('Error playing recording: $e');
+      debugPrint('Stack trace: $stackTrace');
       return false;
     }
   }
@@ -315,10 +316,10 @@ class AudioService {
   Future<bool> stopPlayback() async {
     try {
       await _player.stop();
-      print('Playback stopped');
+      debugPrint('Playback stopped');
       return true;
     } catch (e) {
-      print('Error stopping playback: $e');
+      debugPrint('Error stopping playback: $e');
       return false;
     }
   }
@@ -328,7 +329,7 @@ class AudioService {
       await _player.pause();
       return true;
     } catch (e) {
-      print('Error pausing playback: $e');
+      debugPrint('Error pausing playback: $e');
       return false;
     }
   }
@@ -338,7 +339,7 @@ class AudioService {
       await _player.play();
       return true;
     } catch (e) {
-      print('Error resuming playback: $e');
+      debugPrint('Error resuming playback: $e');
       return false;
     }
   }
@@ -353,7 +354,7 @@ class AudioService {
       await _player.setFilePath(filePath);
       return _player.duration;
     } catch (e) {
-      print('Error getting recording duration: $e');
+      debugPrint('Error getting recording duration: $e');
       return null;
     }
   }
@@ -367,7 +368,7 @@ class AudioService {
       }
       return 0;
     } catch (e) {
-      print('Error getting file size: $e');
+      debugPrint('Error getting file size: $e');
       return 0;
     }
   }
@@ -375,21 +376,21 @@ class AudioService {
   Future<bool> deleteRecordingFile(String filePath) async {
     try {
       if (filePath.isEmpty) {
-        print('Cannot delete: empty file path');
+        debugPrint('Cannot delete: empty file path');
         return false;
       }
 
       final file = File(filePath);
       if (await file.exists()) {
         await file.delete();
-        print('Deleted recording file: $filePath');
+        debugPrint('Deleted recording file: $filePath');
         return true;
       }
 
-      print('File not found for deletion: $filePath');
+      debugPrint('File not found for deletion: $filePath');
       return false;
     } catch (e) {
-      print('Error deleting recording file: $e');
+      debugPrint('Error deleting recording file: $e');
       return false;
     }
   }

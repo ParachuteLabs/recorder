@@ -115,8 +115,15 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
                 setState(() {
                   _recording = updatedRecording;
                 });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
+                if (!mounted) return;
+
+                final navigator = Navigator.of(context);
+
+                final messenger = ScaffoldMessenger.of(context);
+
+                navigator.pop();
+
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Recording updated')),
                 );
               }
@@ -308,7 +315,7 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.grey.withOpacity(0.7),
+                  color: Colors.grey.withValues(alpha: 0.7),
                   fontSize: 12,
                 ),
               ),
@@ -372,10 +379,10 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
             color: Theme.of(context)
                 .colorScheme
                 .surfaceContainerHighest
-                .withOpacity(0.3),
+                .withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
             ),
           ),
           child: Text(
@@ -386,7 +393,7 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
               height: 1.5,
               color: _recording.transcript.isNotEmpty
                   ? null
-                  : Colors.grey.withOpacity(0.7),
+                  : Colors.grey.withValues(alpha: 0.7),
               fontStyle:
                   _recording.transcript.isEmpty ? FontStyle.italic : null,
             ),

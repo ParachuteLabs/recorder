@@ -24,7 +24,6 @@ linter:
     - cancel_subscriptions
     - close_sinks
     - directives_ordering
-    - package_api_docs
     - prefer_is_empty
     - prefer_is_not_empty
     - require_trailing_commas
