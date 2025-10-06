@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'dart:io';
-import 'dart:convert';
 import 'package:parachute/models/recording.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,41 +42,41 @@ class StorageService {
 
   Future<void> _doInitialize() async {
     try {
-      print('StorageService: Starting initialization...');
+      debugPrint('StorageService: Starting initialization...');
       final prefs = await SharedPreferences.getInstance();
-      print('StorageService: Got SharedPreferences');
+      debugPrint('StorageService: Got SharedPreferences');
 
       _syncFolderPath = prefs.getString(_syncFolderPathKey);
-      print('StorageService: Sync folder path: $_syncFolderPath');
+      debugPrint('StorageService: Sync folder path: $_syncFolderPath');
 
       // If no sync folder is set, use default app documents directory
       if (_syncFolderPath == null) {
-        print('StorageService: Getting app documents directory...');
+        debugPrint('StorageService: Getting app documents directory...');
         final appDir = await getApplicationDocumentsDirectory();
         _syncFolderPath = '${appDir.path}/parachute_recordings';
-        print('StorageService: Set default sync folder: $_syncFolderPath');
+        debugPrint('StorageService: Set default sync folder: $_syncFolderPath');
         await prefs.setString(_syncFolderPathKey, _syncFolderPath!);
       }
 
       // Ensure recordings directory exists
-      print('StorageService: Ensuring recordings directory exists...');
+      debugPrint('StorageService: Ensuring recordings directory exists...');
       await _ensureRecordingsDirectory();
 
       // Create sample recordings on first launch
       final hasInitialized = prefs.getBool(_hasInitializedKey) ?? false;
-      print('StorageService: Has initialized: $hasInitialized');
+      debugPrint('StorageService: Has initialized: $hasInitialized');
       if (!hasInitialized) {
-        print('StorageService: Creating sample recordings...');
+        debugPrint('StorageService: Creating sample recordings...');
         await _createSampleRecordings();
         await prefs.setBool(_hasInitializedKey, true);
       }
 
       _isInitialized = true;
       _initializationFuture = null;
-      print('StorageService: Initialization complete');
+      debugPrint('StorageService: Initialization complete');
     } catch (e, stackTrace) {
-      print('StorageService: Error during initialization: $e');
-      print('StorageService: Stack trace: $stackTrace');
+      debugPrint('StorageService: Error during initialization: $e');
+      debugPrint('StorageService: Stack trace: $stackTrace');
       _initializationFuture = null;
       rethrow;
     }
@@ -103,7 +103,7 @@ class StorageService {
       await _ensureRecordingsDirectory();
       return true;
     } catch (e) {
-      print('Error setting sync folder path: $e');
+      debugPrint('Error setting sync folder path: $e');
       return false;
     }
   }
@@ -112,7 +112,7 @@ class StorageService {
     final recordingsDir = Directory(_syncFolderPath!);
     if (!await recordingsDir.exists()) {
       await recordingsDir.create(recursive: true);
-      print('Created recordings directory: ${recordingsDir.path}');
+      debugPrint('Created recordings directory: ${recordingsDir.path}');
     }
   }
 
@@ -153,7 +153,7 @@ class StorageService {
               recordings.add(recording);
             }
           } catch (e) {
-            print('Error loading recording from ${entity.path}: $e');
+            debugPrint('Error loading recording from ${entity.path}: $e');
           }
         }
       }
@@ -162,7 +162,7 @@ class StorageService {
       recordings.sort((a, b) => b.timestamp.compareTo(a.timestamp));
       return recordings;
     } catch (e) {
-      print('Error getting recordings: $e');
+      debugPrint('Error getting recordings: $e');
       return [];
     }
   }
@@ -174,7 +174,7 @@ class StorageService {
     // Parse frontmatter and content
     final parts = content.split('---');
     if (parts.length < 3) {
-      print('Invalid markdown format in ${mdFile.path}');
+      debugPrint('Invalid markdown format in ${mdFile.path}');
       return null;
     }
 
@@ -260,10 +260,10 @@ class StorageService {
       final markdown = _generateMarkdown(recording);
       await mdFile.writeAsString(markdown);
 
-      print('Saved recording metadata: $mdPath');
+      debugPrint('Saved recording metadata: $mdPath');
       return true;
     } catch (e) {
-      print('Error saving recording: $e');
+      debugPrint('Error saving recording: $e');
       return false;
     }
   }
@@ -322,7 +322,7 @@ class StorageService {
       final audioFile = File(recording.filePath);
       if (await audioFile.exists()) {
         await audioFile.delete();
-        print('Deleted audio file: ${recording.filePath}');
+        debugPrint('Deleted audio file: ${recording.filePath}');
       }
 
       // Delete metadata file
@@ -330,12 +330,12 @@ class StorageService {
       final mdFile = File(mdPath);
       if (await mdFile.exists()) {
         await mdFile.delete();
-        print('Deleted metadata file: $mdPath');
+        debugPrint('Deleted metadata file: $mdPath');
       }
 
       return true;
     } catch (e) {
-      print('Error deleting recording: $e');
+      debugPrint('Error deleting recording: $e');
       return false;
     }
   }
@@ -420,7 +420,7 @@ class StorageService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString(_openaiApiKeyKey);
     } catch (e) {
-      print('Error getting OpenAI API key: $e');
+      debugPrint('Error getting OpenAI API key: $e');
       return null;
     }
   }
@@ -430,7 +430,7 @@ class StorageService {
       final prefs = await SharedPreferences.getInstance();
       return await prefs.setString(_openaiApiKeyKey, apiKey.trim());
     } catch (e) {
-      print('Error saving OpenAI API key: $e');
+      debugPrint('Error saving OpenAI API key: $e');
       return false;
     }
   }
@@ -440,7 +440,7 @@ class StorageService {
       final prefs = await SharedPreferences.getInstance();
       return await prefs.remove(_openaiApiKeyKey);
     } catch (e) {
-      print('Error deleting OpenAI API key: $e');
+      debugPrint('Error deleting OpenAI API key: $e');
       return false;
     }
   }

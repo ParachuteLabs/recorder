@@ -94,13 +94,13 @@ class WhisperService {
           );
         }
       }
-    } on SocketException catch (e) {
+    } on SocketException {
       throw WhisperException(
         'Network error: Please check your internet connection',
       );
-    } on FormatException catch (e) {
+    } on FormatException {
       throw WhisperException(
-        'Invalid response from Whisper API: ${e.message}',
+        'Invalid response from Whisper API',
       );
     } catch (e) {
       if (e is WhisperException) rethrow;

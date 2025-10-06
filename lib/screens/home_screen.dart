@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:parachute/models/recording.dart';
-import 'package:parachute/services/storage_service.dart';
-import 'package:parachute/screens/recording_screen.dart';
+import 'package:parachute/providers/service_providers.dart';
 import 'package:parachute/screens/recording_detail_screen.dart';
+import 'package:parachute/screens/recording_screen.dart';
 import 'package:parachute/screens/settings_screen.dart';
 import 'package:parachute/widgets/recording_tile.dart';
-import 'package:parachute/utils/sample_data.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  final StorageService _storageService = StorageService();
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   List<Recording> _recordings = [];
   bool _isLoading = true;
 
@@ -49,28 +49,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadRecordings() async {
-    final recordings = await _storageService.getRecordings();
-
-    // Add sample data if no recordings exist (for demo purposes)
-    if (recordings.isEmpty) {
-      final sampleRecordings = SampleData.getSampleRecordings();
-      for (final recording in sampleRecordings) {
-        await _storageService.saveRecording(recording);
-      }
-      final updatedRecordings = await _storageService.getRecordings();
-      if (mounted) {
-        setState(() {
-          _recordings = updatedRecordings;
-          _isLoading = false;
-        });
-      }
-    } else {
-      if (mounted) {
-        setState(() {
-          _recordings = recordings;
-          _isLoading = false;
-        });
-      }
+    final storageService = ref.read(storageServiceProvider);
+    final recordings = await storageService.getRecordings();
+    if (mounted) {
+      setState(() {
+        _recordings = recordings;
+        _isLoading = false;
+      });
     }
   }
 
@@ -85,7 +70,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const RecordingScreen()),
     );
-
     // Always refresh when returning from recording flow
     _refreshRecordings();
   }
