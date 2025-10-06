@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Parachute** is a cross-platform Flutter voice recording application designed for seamless background operation and crystal-clear audio capture. The app is currently in prototype phase with placeholder implementations for audio recording functionality.
+**Parachute** is a cross-platform Flutter voice recording application with file-based syncing, crystal-clear audio capture, and AI-powered transcription via OpenAI Whisper API.
 
 ## Development Commands
 
 ### Build and Run
+
 ```bash
 # Get dependencies
 flutter pub get
@@ -19,69 +20,144 @@ flutter run
 # Run on specific platform
 flutter run -d ios
 flutter run -d android
-flutter run -d chrome
 
 # Build for release
 flutter build apk
 flutter build ios
-flutter build web
 ```
 
 ### Code Quality
+
 ```bash
-# Run static analysis
+# Run static analysis (0 errors expected)
 flutter analyze
 
-# Run tests (when available)
+# Run tests (27 tests)
 flutter test
+
+# Run specific test suites
+flutter test test/models/
+flutter test test/utils/
+flutter test test/repositories/
 
 # Format code
 dart format lib/
 ```
 
-### Icons Generation
-```bash
-# Generate app icons from assets/icons/dreamflow_icon.jpg
-flutter pub run flutter_launcher_icons
-```
-
 ## Architecture
 
-### Core Services (Singleton Pattern)
+The app follows **Flutter 2025 best practices** with clean architecture:
 
-1. **AudioService** (`lib/services/audio_service.dart`): Handles all audio recording operations. Currently uses placeholder implementations with TODO comments for actual audio package integrations (`flutter_sound`, `permission_handler`).
+### Layered Structure
 
-2. **StorageService** (`lib/services/storage_service.dart`): Manages recording persistence. Currently uses in-memory storage with TODO comments for `shared_preferences` integration.
+```
+Domain Layer
+  └── Models (lib/models/recording.dart)
+  └── Validators (lib/utils/validators.dart)
 
-### Data Model
+Data Layer
+  └── Repositories (lib/repositories/recording_repository.dart)
+  └── Services (lib/services/)
 
-- **Recording** (`lib/models/recording.dart`): Core data model with JSON serialization, containing fields for id, title, filePath, timestamp, duration, tags, transcript, and file size.
+State Management
+  └── Riverpod Providers (lib/providers/service_providers.dart)
 
-### Screen Flow
+Presentation Layer
+  └── Screens (lib/screens/)
+  └── Widgets (lib/widgets/)
+```
 
-1. **HomeScreen** → Lists all recordings, entry point to recording
-2. **RecordingScreen** → Active recording interface with pause/resume/stop controls
-3. **PostRecordingScreen** → Post-recording metadata entry (title, tags)
-4. **RecordingDetailScreen** → View/edit individual recording details
+### Core Services
+
+All services use **Riverpod dependency injection** (no singletons):
+
+1. **AudioService** (`lib/services/audio_service.dart`)
+   - Audio recording/playback using `record` and `just_audio` packages
+   - Auto-initialized via `audioServiceProvider`
+   - Proper disposal handling
+
+2. **StorageService** (`lib/services/storage_service.dart`)
+   - File-based storage with markdown metadata
+   - Syncs via user-configurable folder (iCloud, Syncthing, etc.)
+   - Auto-initialized via `storageServiceProvider`
+
+3. **WhisperService** (`lib/services/whisper_service.dart`)
+   - OpenAI Whisper API integration for transcription
+   - API key management via StorageService
+   - Accessed via `whisperServiceProvider`
+
+4. **RecordingRepository** (`lib/repositories/recording_repository.dart`)
+   - Repository pattern for data access
+   - Clean CRUD API
+   - Accessed via `recordingRepositoryProvider`
 
 ### State Management
 
-The app uses StatefulWidget for local state management. Services use singleton pattern for app-wide state sharing.
+- **Riverpod** for dependency injection and state management
+- Screens extend `ConsumerStatefulWidget`
+- Services injected via `ref.read(serviceProvider)`
+- No singleton pattern - all dependencies managed by Riverpod
+
+### Data Model
+
+- **Recording** (`lib/models/recording.dart`)
+  - Validated model with assertions
+  - JSON serialization with null safety
+  - Computed properties for formatting
+
+### Screen Flow
+
+1. **HomeScreen** → Lists recordings, refreshes on resume
+2. **RecordingScreen** → Active recording with pause/resume/stop
+3. **PostRecordingScreen** → Add title, tags, transcribe
+4. **RecordingDetailScreen** → View/edit/delete recordings
+5. **SettingsScreen** → Configure API key and sync folder
 
 ### Package Dependencies
 
-Current dependencies with pending integrations:
-- `flutter_sound`: Audio recording/playback (TODO: uncommented in services)
-- `permission_handler`: Microphone permissions (TODO: uncommented)
-- `path_provider`: File system access (TODO: uncommented)
-- `shared_preferences`: Persistent storage (TODO: uncommented)
-- `google_fonts`: Typography styling (active)
-- `cupertino_icons`: iOS-style icons (active)
+**Active packages:**
+
+- `flutter_riverpod ^2.6.1` - State management
+- `record ^6.1.2` - Audio recording
+- `just_audio ^0.9.42` - Audio playback
+- `path_provider ^2.0.0` - File system access
+- `shared_preferences ^2.0.0` - Settings persistence
+- `http ^1.2.0` - Whisper API calls
+- `google_fonts ^6.1.0` - Typography
+
+**Dev packages:**
+
+- `flutter_lints ^6.0.0` - Comprehensive linting
+- `build_runner` & `riverpod_generator` - Code generation (future)
+
+## Testing
+
+**27 tests** covering:
+
+- Recording model (validation, serialization)
+- Input validators (title, API key, tags)
+- Repository pattern
+
+Run tests:
+
+```bash
+flutter test
+```
 
 ## Important Notes
 
-- The app name is "parachute" (lowercase in package name)
-- Audio functionality currently returns mock data - actual recording packages need to be integrated
-- Sample recordings are automatically created on first launch for demo purposes
-- Using Flutter 3.35.3 with Dart 3.9.2
-- Linting configured via `flutter_lints` package
+- App uses **Riverpod** - access services via `ref.read(serviceProvider)`
+- Recordings stored as `.m4a` (audio) + `.md` (metadata)
+- Sample recordings created on first launch
+- Transcription requires OpenAI API key (configured in Settings)
+- File-based sync for cross-device support
+- Global error boundaries configured in main.dart
+- Production-ready with comprehensive validation
+
+## Code Style
+
+- Use `debugPrint()` not `print()`
+- Use `withValues(alpha:)` not `withOpacity()`
+- Always check `mounted` before using `BuildContext` after async
+- Input validation required for user-facing fields
+- Prefer `ConsumerStatefulWidget` for screens
