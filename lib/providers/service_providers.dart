@@ -38,9 +38,8 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 /// This manages transcription via OpenAI's Whisper API.
 final whisperServiceProvider = Provider<WhisperService>((ref) {
   // WhisperService depends on StorageService for API key management
-  // Ensure StorageService is initialized first
-  ref.watch(storageServiceProvider);
-  return WhisperService();
+  final storageService = ref.watch(storageServiceProvider);
+  return WhisperService(storageService);
 });
 
 /// Provider for RecordingRepository

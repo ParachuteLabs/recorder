@@ -12,7 +12,9 @@ import 'package:parachute/services/storage_service.dart';
 /// Cost: ~$0.006 per minute of audio
 /// Supported formats: mp3, mp4, mpeg, mpga, m4a, wav, webm
 class WhisperService {
-  final StorageService _storageService = StorageService();
+  final StorageService _storageService;
+
+  WhisperService(this._storageService);
 
   /// Transcribes an audio file using OpenAI's Whisper API
   ///
