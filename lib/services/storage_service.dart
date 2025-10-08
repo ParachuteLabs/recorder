@@ -182,8 +182,11 @@ class StorageService {
     final frontmatter = _parseYamlFrontmatter(parts[1]);
     final bodyContent = parts.sublist(2).join('---').trim();
 
-    // Extract audio file path
-    final audioPath = mdFile.path.replaceAll('.md', '.m4a');
+    // Determine file extension based on source
+    final source = frontmatter['source']?.toString() ?? 'phone';
+    final isOmiDevice = source.toLowerCase() == 'omidevice';
+    final audioPath =
+        mdFile.path.replaceAll('.md', isOmiDevice ? '.wav' : '.m4a');
 
     return Recording(
       id: frontmatter['id']?.toString() ?? '',
@@ -195,6 +198,9 @@ class StorageService {
       tags: (frontmatter['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       transcript: bodyContent,
       fileSizeKB: (frontmatter['fileSize'] ?? 0).toDouble(),
+      source: isOmiDevice ? RecordingSource.omiDevice : RecordingSource.phone,
+      deviceId: frontmatter['deviceId']?.toString(),
+      buttonTapCount: frontmatter['buttonTapCount'] as int?,
     );
   }
 
@@ -279,6 +285,15 @@ class StorageService {
     buffer.writeln('created: ${recording.timestamp.toIso8601String()}');
     buffer.writeln('duration: ${recording.duration.inSeconds}');
     buffer.writeln('fileSize: ${recording.fileSizeKB}');
+    buffer.writeln('source: ${recording.source}');
+
+    if (recording.deviceId != null) {
+      buffer.writeln('deviceId: ${recording.deviceId}');
+    }
+
+    if (recording.buttonTapCount != null) {
+      buffer.writeln('buttonTapCount: ${recording.buttonTapCount}');
+    }
 
     if (recording.tags.isNotEmpty) {
       buffer.writeln('tags:');
