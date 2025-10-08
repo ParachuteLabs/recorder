@@ -6,6 +6,7 @@ import 'package:parachute/models/omi_device.dart';
 import 'package:parachute/services/omi/device_connection.dart';
 import 'package:parachute/services/omi/models.dart';
 import 'package:parachute/services/omi/omi_connection.dart';
+import 'package:parachute/utils/platform_utils.dart';
 
 /// Service status for the Bluetooth manager
 enum OmiBluetoothServiceStatus {
@@ -47,8 +48,17 @@ class OmiBluetoothService {
       return;
     }
 
+    // Check platform support
+    if (!PlatformUtils.isBleSupported) {
+      debugPrint(
+          '[OmiBluetoothService] BLE not supported on ${PlatformUtils.platformName}');
+      _status = OmiBluetoothServiceStatus.stopped;
+      return;
+    }
+
     _status = OmiBluetoothServiceStatus.ready;
-    debugPrint('[OmiBluetoothService] Service started');
+    debugPrint(
+        '[OmiBluetoothService] Service started on ${PlatformUtils.platformName}');
 
     // Listen to global connection state changes
     _connectionStateSubscription =

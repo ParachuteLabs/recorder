@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:parachute/models/omi_device.dart';
 import 'package:parachute/services/omi/models.dart';
 import 'package:parachute/services/omi/omi_bluetooth_service.dart';
+import 'package:parachute/services/omi/omi_capture_service.dart';
+import 'package:parachute/providers/service_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Provider for OmiBluetoothService
@@ -37,6 +39,27 @@ final omiConnectionStateProvider = Provider<DeviceConnectionState?>((ref) {
 final connectedOmiDeviceProvider = Provider<OmiDevice?>((ref) {
   final bluetoothService = ref.watch(omiBluetoothServiceProvider);
   return bluetoothService.connectedDevice;
+});
+
+/// Provider for OmiCaptureService
+///
+/// This service handles audio recording from the Omi device.
+/// It depends on OmiBluetoothService and StorageService.
+final omiCaptureServiceProvider = Provider<OmiCaptureService>((ref) {
+  final bluetoothService = ref.watch(omiBluetoothServiceProvider);
+  final storageService = ref.watch(storageServiceProvider);
+
+  final service = OmiCaptureService(
+    bluetoothService: bluetoothService,
+    storageService: storageService,
+  );
+
+  // Clean up on dispose
+  ref.onDispose(() async {
+    await service.dispose();
+  });
+
+  return service;
 });
 
 /// Provider for discovered devices during scan
