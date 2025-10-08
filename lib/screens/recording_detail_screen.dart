@@ -1,10 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:parachute/providers/service_providers.dart';
 import 'package:flutter/services.dart';
 import 'package:parachute/models/recording.dart';
-import 'package:parachute/services/storage_service.dart';
 import 'package:parachute/widgets/playback_controls.dart';
 
-class RecordingDetailScreen extends StatefulWidget {
+class RecordingDetailScreen extends ConsumerStatefulWidget {
   final Recording recording;
 
   const RecordingDetailScreen({
@@ -13,11 +14,10 @@ class RecordingDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<RecordingDetailScreen> createState() => _RecordingDetailScreenState();
+  ConsumerState<RecordingDetailScreen> createState() => _RecordingDetailScreenState();
 }
 
-class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
-  final StorageService _storageService = StorageService();
+class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
   late Recording _recording;
 
   @override
@@ -110,13 +110,20 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               );
 
               final success =
-                  await _storageService.updateRecording(updatedRecording);
+                  await ref.read(storageServiceProvider).updateRecording(updatedRecording);
               if (success && mounted) {
                 setState(() {
                   _recording = updatedRecording;
                 });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
+                if (!mounted) return;
+
+                final navigator = Navigator.of(context);
+
+                final messenger = ScaffoldMessenger.of(context);
+
+                navigator.pop();
+
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Recording updated')),
                 );
               }
@@ -191,7 +198,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               onPressed: () async {
                 Navigator.pop(context);
                 final success =
-                    await _storageService.deleteRecording(_recording.id);
+                    await ref.read(storageServiceProvider).deleteRecording(_recording.id);
                 if (success && mounted) {
                   Navigator.pop(context, true);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -233,7 +240,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               duration: _recording.duration,
               onDelete: () async {
                 final success =
-                    await _storageService.deleteRecording(_recording.id);
+                    await ref.read(storageServiceProvider).deleteRecording(_recording.id);
                 if (success && mounted) {
                   Navigator.of(context).pop(true);
                 }
@@ -308,7 +315,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.grey.withOpacity(0.7),
+                  color: Colors.grey.withValues(alpha: 0.7),
                   fontSize: 12,
                 ),
               ),
@@ -372,10 +379,10 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
             color: Theme.of(context)
                 .colorScheme
                 .surfaceContainerHighest
-                .withOpacity(0.3),
+                .withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
             ),
           ),
           child: Text(
@@ -386,7 +393,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               height: 1.5,
               color: _recording.transcript.isNotEmpty
                   ? null
-                  : Colors.grey.withOpacity(0.7),
+                  : Colors.grey.withValues(alpha: 0.7),
               fontStyle:
                   _recording.transcript.isEmpty ? FontStyle.italic : null,
             ),

@@ -12,7 +12,9 @@ import 'package:parachute/services/storage_service.dart';
 /// Cost: ~$0.006 per minute of audio
 /// Supported formats: mp3, mp4, mpeg, mpga, m4a, wav, webm
 class WhisperService {
-  final StorageService _storageService = StorageService();
+  final StorageService _storageService;
+
+  WhisperService(this._storageService);
 
   /// Transcribes an audio file using OpenAI's Whisper API
   ///
@@ -94,13 +96,13 @@ class WhisperService {
           );
         }
       }
-    } on SocketException catch (e) {
+    } on SocketException {
       throw WhisperException(
         'Network error: Please check your internet connection',
       );
-    } on FormatException catch (e) {
+    } on FormatException {
       throw WhisperException(
-        'Invalid response from Whisper API: ${e.message}',
+        'Invalid response from Whisper API',
       );
     } catch (e) {
       if (e is WhisperException) rethrow;

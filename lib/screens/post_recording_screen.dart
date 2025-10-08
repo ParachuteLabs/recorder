@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:parachute/models/recording.dart';
-import 'package:parachute/services/audio_service.dart';
-import 'package:parachute/services/storage_service.dart';
-import 'package:parachute/services/whisper_service.dart';
+import 'package:parachute/providers/service_providers.dart';
 import 'package:parachute/screens/settings_screen.dart';
+import 'package:parachute/services/whisper_service.dart';
 
-class PostRecordingScreen extends StatefulWidget {
+class PostRecordingScreen extends ConsumerStatefulWidget {
   final String recordingPath;
   final Duration duration;
   final String? initialTranscript;
@@ -18,15 +18,13 @@ class PostRecordingScreen extends StatefulWidget {
   });
 
   @override
-  State<PostRecordingScreen> createState() => _PostRecordingScreenState();
+  ConsumerState<PostRecordingScreen> createState() =>
+      _PostRecordingScreenState();
 }
 
-class _PostRecordingScreenState extends State<PostRecordingScreen> {
+class _PostRecordingScreenState extends ConsumerState<PostRecordingScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _transcriptController = TextEditingController();
-  final StorageService _storageService = StorageService();
-  final AudioService _audioService = AudioService();
-  final WhisperService _whisperService = WhisperService();
 
   final List<String> _predefinedTags = [
     'Project A',
@@ -57,10 +55,12 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
 
   Future<void> _togglePlayback() async {
     if (_isPlaying) {
-      await _audioService.stopPlayback();
+      await ref.read(audioServiceProvider).stopPlayback();
       setState(() => _isPlaying = false);
     } else {
-      final success = await _audioService.playRecording(widget.recordingPath);
+      final success = await ref
+          .read(audioServiceProvider)
+          .playRecording(widget.recordingPath);
       if (success) {
         setState(() => _isPlaying = true);
         // Auto-stop after duration (simplified)
@@ -77,7 +77,7 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
     if (_isTranscribing) return;
 
     // Check if API key is configured
-    final isConfigured = await _whisperService.isConfigured();
+    final isConfigured = await ref.read(whisperServiceProvider).isConfigured();
     if (!isConfigured) {
       if (!mounted) return;
 
@@ -117,9 +117,9 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
     setState(() => _isTranscribing = true);
 
     try {
-      final transcript = await _whisperService.transcribeAudio(
-        widget.recordingPath,
-      );
+      final transcript = await ref.read(whisperServiceProvider).transcribeAudio(
+            widget.recordingPath,
+          );
 
       if (mounted) {
         _transcriptController.text = transcript;
@@ -163,8 +163,9 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final fileSizeKB =
-          await _audioService.getFileSizeKB(widget.recordingPath);
+      final fileSizeKB = await ref
+          .read(audioServiceProvider)
+          .getFileSizeKB(widget.recordingPath);
 
       // Extract recording ID from the file path
       // Path format: /path/to/2025-10-06-1759784172526.m4a
@@ -184,7 +185,8 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
         fileSizeKB: fileSizeKB,
       );
 
-      final success = await _storageService.saveRecording(recording);
+      final success =
+          await ref.read(storageServiceProvider).saveRecording(recording);
 
       if (success && mounted) {
         // Show success message first
@@ -197,7 +199,9 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
 
         // Navigate back to home screen and trigger refresh
         if (mounted) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
+          if (!mounted) return;
+        final navigator = Navigator.of(context);
+        navigator.popUntil((route) => route.isFirst);
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -281,7 +285,7 @@ class _PostRecordingScreenState extends State<PostRecordingScreen> {
                   Text(
                     '${widget.duration.inMinutes}:${(widget.duration.inSeconds % 60).toString().padLeft(2, '0')}',
                     style: TextStyle(
-                      color: Colors.grey.withOpacity(0.7),
+                      color: Colors.grey.withValues(alpha: 0.7),
                     ),
                   ),
                 ],

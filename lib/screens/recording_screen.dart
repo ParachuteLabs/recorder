@@ -1,18 +1,20 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:parachute/services/audio_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:parachute/providers/service_providers.dart';
 import 'package:parachute/screens/post_recording_screen.dart';
+import 'package:parachute/services/audio_service.dart';
 import 'package:parachute/widgets/recording_visualizer.dart';
 
-class RecordingScreen extends StatefulWidget {
+class RecordingScreen extends ConsumerStatefulWidget {
   const RecordingScreen({super.key});
 
   @override
-  State<RecordingScreen> createState() => _RecordingScreenState();
+  ConsumerState<RecordingScreen> createState() => _RecordingScreenState();
 }
 
-class _RecordingScreenState extends State<RecordingScreen> {
-  final AudioService _audioService = AudioService();
+class _RecordingScreenState extends ConsumerState<RecordingScreen> {
   RecordingState _recordingState = RecordingState.stopped;
   Duration _recordingDuration = Duration.zero;
   Duration _pausedDuration = Duration.zero;
@@ -30,36 +32,29 @@ class _RecordingScreenState extends State<RecordingScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    // Don't dispose the AudioService singleton - it's shared across the app
     super.dispose();
   }
 
   Future<void> _initializeAndStartRecording() async {
+    final audioService = ref.read(audioServiceProvider);
+
     try {
       // Initialize audio service (required)
-      print('Initializing audio service...');
-      await _audioService.initialize();
-      print('Audio service initialized');
+      await audioService.initialize();
 
       // Start audio recording
-      print('Starting audio recording...');
-      final success = await _audioService.startRecording();
-
+      final success = await audioService.startRecording();
       if (success) {
-        print('Audio recording started successfully');
         _startTime = DateTime.now();
         _startTimer();
-
         if (mounted) {
           setState(() {
             _recordingState = RecordingState.recording;
           });
         }
-
         // Try to initialize transcription (optional, non-blocking)
         _initializeTranscription();
       } else {
-        print('Failed to start audio recording');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -74,10 +69,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
           }
         }
       }
-    } catch (e, stackTrace) {
-      print('Error in initializeAndStartRecording: $e');
-      print('Stack trace: $stackTrace');
-
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -104,20 +96,15 @@ class _RecordingScreenState extends State<RecordingScreen> {
     // 3. Implement transcription after recording completes
     //
     // For now, transcription is left as a placeholder for future implementation.
-
-    print(
-        'Real-time transcription skipped - microphone conflict with audio recording');
   }
 
   void _startTimer() {
     _timer?.cancel();
-
     _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-
       if (_recordingState == RecordingState.recording && _startTime != null) {
         setState(() {
           // Calculate total duration minus paused time
@@ -131,25 +118,25 @@ class _RecordingScreenState extends State<RecordingScreen> {
   }
 
   Future<void> _pauseRecording() async {
+    final audioService = ref.read(audioServiceProvider);
+
     if (_recordingState == RecordingState.recording) {
-      final success = await _audioService.pauseRecording();
+      final success = await audioService.pauseRecording();
       if (success) {
         _pauseStartTime = DateTime.now();
         _timer?.cancel();
-
         setState(() {
           _recordingState = RecordingState.paused;
         });
       }
     } else if (_recordingState == RecordingState.paused) {
-      final success = await _audioService.resumeRecording();
+      final success = await audioService.resumeRecording();
       if (success) {
         // Add the paused duration to total paused time
         if (_pauseStartTime != null) {
           _pausedDuration += DateTime.now().difference(_pauseStartTime!);
           _pauseStartTime = null;
         }
-
         setState(() {
           _recordingState = RecordingState.recording;
         });
@@ -159,6 +146,8 @@ class _RecordingScreenState extends State<RecordingScreen> {
   }
 
   Future<void> _stopRecording() async {
+    final audioService = ref.read(audioServiceProvider);
+
     _timer?.cancel();
     setState(() {
       _recordingState = RecordingState.stopped;
@@ -167,16 +156,15 @@ class _RecordingScreenState extends State<RecordingScreen> {
     // Transcription is currently disabled due to microphone conflicts
     String transcription = '';
 
-    final path = await _audioService.stopRecording();
+    final path = await audioService.stopRecording();
+
     if (path != null && mounted) {
       _recordingPath = path;
-
       // Calculate final duration
       if (_startTime != null) {
         final totalElapsed = DateTime.now().difference(_startTime!);
         _recordingDuration = totalElapsed - _pausedDuration;
       }
-
       _navigateToPostRecording(transcription);
     } else {
       if (mounted) {
@@ -226,7 +214,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Spacer(),
-
             // Recording status
             Text(
               _recordingState == RecordingState.recording
@@ -242,16 +229,12 @@ class _RecordingScreenState extends State<RecordingScreen> {
                             : Colors.grey,
                   ),
             ),
-
             const SizedBox(height: 20),
-
             // Recording visualizer
             RecordingVisualizer(
               isRecording: _recordingState == RecordingState.recording,
             ),
-
             const SizedBox(height: 30),
-
             // Duration display
             Text(
               _formattedDuration,
@@ -260,9 +243,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
                     fontFamily: 'monospace',
                   ),
             ),
-
             const SizedBox(height: 20),
-
             // Recording indicator
             if (_recordingState == RecordingState.recording)
               Row(
@@ -280,11 +261,8 @@ class _RecordingScreenState extends State<RecordingScreen> {
                   const Text('recording...'),
                 ],
               ),
-
             const SizedBox(height: 20),
-
             const Spacer(),
-
             // Control buttons
             Padding(
               padding: const EdgeInsets.all(32.0),
@@ -307,7 +285,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
                       color: Colors.white,
                     ),
                   ),
-
                   // Stop button
                   FloatingActionButton(
                     heroTag: 'stopButton',
@@ -325,7 +302,6 @@ class _RecordingScreenState extends State<RecordingScreen> {
                 ],
               ),
             ),
-
             const Text('Tap stop to finish recording'),
           ],
         ),
