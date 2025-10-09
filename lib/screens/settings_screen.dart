@@ -1,8 +1,13 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:parachute/providers/service_providers.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:parachute/providers/omi_providers.dart';
+import 'package:parachute/providers/service_providers.dart';
+import 'package:parachute/screens/device_pairing_screen.dart';
+import 'package:parachute/utils/platform_utils.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -40,7 +45,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _hasApiKey = true;
     }
 
-    _syncFolderPath = await ref.read(storageServiceProvider).getSyncFolderPath();
+    _syncFolderPath =
+        await ref.read(storageServiceProvider).getSyncFolderPath();
 
     setState(() => _isLoading = false);
   }
@@ -71,7 +77,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     setState(() => _isSaving = true);
 
-    final success = await ref.read(storageServiceProvider).saveOpenAIApiKey(apiKey);
+    final success =
+        await ref.read(storageServiceProvider).saveOpenAIApiKey(apiKey);
 
     setState(() => _isSaving = false);
 
@@ -121,7 +128,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
 
     if (confirmed == true) {
-      final success = await ref.read(storageServiceProvider).deleteOpenAIApiKey();
+      final success =
+          await ref.read(storageServiceProvider).deleteOpenAIApiKey();
       if (success) {
         _apiKeyController.clear();
         setState(() => _hasApiKey = false);
@@ -147,8 +155,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
 
     if (selectedDirectory != null) {
-      final success =
-          await ref.read(storageServiceProvider).setSyncFolderPath(selectedDirectory);
+      final success = await ref
+          .read(storageServiceProvider)
+          .setSyncFolderPath(selectedDirectory);
       if (success) {
         setState(() => _syncFolderPath = selectedDirectory);
         if (mounted) {
@@ -170,6 +179,74 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         }
       }
     }
+  }
+
+  Widget _buildOmiDeviceCard() {
+    final connectedDevice = ref.watch(connectedOmiDeviceProvider);
+    final isConnected = connectedDevice != null;
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const DevicePairingScreen(),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isConnected
+              ? Colors.green.withValues(alpha: 0.1)
+              : Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isConnected ? Colors.green : Colors.grey,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isConnected ? Icons.bluetooth_connected : Icons.bluetooth,
+              color: isConnected ? Colors.green : Colors.grey[600],
+              size: 32,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isConnected ? 'Connected' : 'Not Connected',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isConnected ? Colors.green : Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isConnected
+                        ? connectedDevice.name
+                        : 'Tap to pair your device',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: Colors.grey[400],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -246,6 +323,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 32),
                 const Divider(),
                 const SizedBox(height: 32),
+
+                // Omi Device Section
+                if (PlatformUtils.shouldShowOmiFeatures) ...[
+                  const Text(
+                    'Omi Device',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Connect your Omi wearable device to record with a button tap',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildOmiDeviceCard(),
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  const SizedBox(height: 32),
+                ],
+
                 // OpenAI API Header
                 const Text(
                   'OpenAI API Configuration',

@@ -1,3 +1,28 @@
+/// Source of a recording (phone microphone or Omi device)
+enum RecordingSource {
+  phone,
+  omiDevice;
+
+  @override
+  String toString() {
+    switch (this) {
+      case RecordingSource.phone:
+        return 'phone';
+      case RecordingSource.omiDevice:
+        return 'omiDevice';
+    }
+  }
+
+  static RecordingSource fromString(String value) {
+    switch (value.toLowerCase()) {
+      case 'omidevice':
+        return RecordingSource.omiDevice;
+      case 'phone':
+      default:
+        return RecordingSource.phone;
+    }
+  }
+}
 
 class Recording {
   final String id;
@@ -8,6 +33,9 @@ class Recording {
   final List<String> tags;
   final String transcript;
   final double fileSizeKB;
+  final RecordingSource source;
+  final String? deviceId; // Omi device ID if from device
+  final int? buttonTapCount; // 1, 2, or 3 for device button taps
 
   Recording({
     required this.id,
@@ -18,11 +46,22 @@ class Recording {
     required this.tags,
     required this.transcript,
     required this.fileSizeKB,
+    this.source = RecordingSource.phone,
+    this.deviceId,
+    this.buttonTapCount,
   })  : assert(id.isNotEmpty, 'Recording ID cannot be empty'),
         assert(title.isNotEmpty, 'Recording title cannot be empty'),
         assert(filePath.isNotEmpty, 'Recording file path cannot be empty'),
         assert(duration >= Duration.zero, 'Duration must be non-negative'),
-        assert(fileSizeKB >= 0, 'File size must be non-negative');
+        assert(fileSizeKB >= 0, 'File size must be non-negative'),
+        assert(
+            source == RecordingSource.phone ||
+                (source == RecordingSource.omiDevice && deviceId != null),
+            'Device ID required for omiDevice source'),
+        assert(
+            buttonTapCount == null ||
+                (buttonTapCount >= 1 && buttonTapCount <= 3),
+            'Button tap count must be 1, 2, or 3 if provided');
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -33,6 +72,9 @@ class Recording {
         'tags': tags,
         'transcript': transcript,
         'fileSizeKB': fileSizeKB,
+        'source': source.toString(),
+        'deviceId': deviceId,
+        'buttonTapCount': buttonTapCount,
       };
 
   factory Recording.fromJson(Map<String, dynamic> json) => Recording(
@@ -45,6 +87,11 @@ class Recording {
         tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
         transcript: json['transcript'] as String? ?? '',
         fileSizeKB: (json['fileSizeKB'] as num?)?.toDouble() ?? 0.0,
+        source: json['source'] != null
+            ? RecordingSource.fromString(json['source'] as String)
+            : RecordingSource.phone,
+        deviceId: json['deviceId'] as String?,
+        buttonTapCount: json['buttonTapCount'] as int?,
       );
 
   String get durationString {
