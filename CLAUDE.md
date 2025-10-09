@@ -154,6 +154,69 @@ flutter test
 - Global error boundaries configured in main.dart
 - Production-ready with comprehensive validation
 
+## Omi Device Integration
+
+The app supports integration with Omi wearable devices for voice recording via Bluetooth Low Energy (BLE).
+
+### Firmware
+
+**Location**: `firmware/`
+
+The firmware is built on Zephyr RTOS for nRF52840 chips (Seeed XIAO nRF52840 Sense). Key features:
+
+- Smart button controls (single/double/triple tap)
+- Audio streaming over BLE (PCM8/16, Opus, μLaw codecs)
+- LED status indicators (red=recording, blue=connected, green=charging)
+- Over-the-air (OTA) firmware updates
+
+**Current Version**: 2.0.12
+
+**Building Firmware**:
+
+```bash
+cd firmware
+./scripts/build-docker.sh              # Build only
+./scripts/build-and-integrate.sh       # Build + copy to assets
+```
+
+See `firmware/README.md` for detailed firmware development guide.
+
+### BLE Integration
+
+**Services** (`lib/services/omi/`):
+
+- `omi_bluetooth_service.dart` - Device scanning and connection
+- `omi_connection.dart` - BLE GATT communication
+- `omi_capture_service.dart` - Recording orchestration
+
+**Providers** (`lib/providers/omi_providers.dart`):
+
+- `omiBluetoothServiceProvider` - BLE service
+- `omiCaptureServiceProvider` - Capture service
+- `connectedOmiDeviceProvider` - Device state
+- `lastPairedDeviceProvider` - Persistent pairing
+
+**Button Tap Behavior**:
+
+- Single tap to stop: Standard recording
+- Double tap to stop: AI Query (future feature)
+- Triple tap to stop: Knowledge Capture (future feature)
+
+**Recording Flow**:
+
+1. Device button pressed → BLE event to app
+2. App starts capture service → Listens for audio stream
+3. Device streams audio packets → App assembles into WAV file
+4. Device button released (with tap count) → App stops recording
+5. Recording saved with source=omiDevice, deviceId, buttonTapCount
+
+### Platform Support
+
+- **iOS/Android**: Full BLE support
+- **macOS**: Gracefully degrades (shows "not supported" message)
+
+Platform checks via `PlatformUtils.shouldShowOmiFeatures`
+
 ## Code Style
 
 - Use `debugPrint()` not `print()`
