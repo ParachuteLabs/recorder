@@ -3,6 +3,9 @@ import 'package:parachute/repositories/recording_repository.dart';
 import 'package:parachute/services/audio_service.dart';
 import 'package:parachute/services/storage_service.dart';
 import 'package:parachute/services/whisper_service.dart';
+import 'package:parachute/services/whisper_local_service.dart';
+import 'package:parachute/services/whisper_model_manager.dart';
+import 'package:parachute/models/whisper_models.dart';
 
 /// Provider for AudioService
 ///
@@ -49,4 +52,51 @@ final whisperServiceProvider = Provider<WhisperService>((ref) {
 final recordingRepositoryProvider = Provider<RecordingRepository>((ref) {
   final storageService = ref.watch(storageServiceProvider);
   return RecordingRepository(storageService);
+});
+
+/// Provider for WhisperModelManager
+///
+/// This manages Whisper model downloads and lifecycle.
+final whisperModelManagerProvider = Provider<WhisperModelManager>((ref) {
+  final manager = WhisperModelManager();
+
+  ref.onDispose(() {
+    manager.dispose();
+  });
+
+  return manager;
+});
+
+/// Provider for WhisperLocalService
+///
+/// This manages local on-device transcription using Whisper models.
+final whisperLocalServiceProvider = Provider<WhisperLocalService>((ref) {
+  final modelManager = ref.watch(whisperModelManagerProvider);
+  final storageService = ref.watch(storageServiceProvider);
+
+  final service = WhisperLocalService(modelManager, storageService);
+
+  ref.onDispose(() {
+    service.dispose();
+  });
+
+  return service;
+});
+
+/// Provider for transcription mode
+///
+/// Returns the current transcription mode (API or Local)
+final transcriptionModeProvider =
+    FutureProvider<TranscriptionMode>((ref) async {
+  final storageService = ref.watch(storageServiceProvider);
+  final modeString = await storageService.getTranscriptionMode();
+  return TranscriptionMode.fromString(modeString) ?? TranscriptionMode.api;
+});
+
+/// Provider for auto-transcribe setting
+///
+/// Returns whether auto-transcribe is enabled
+final autoTranscribeProvider = FutureProvider<bool>((ref) async {
+  final storageService = ref.watch(storageServiceProvider);
+  return await storageService.getAutoTranscribe();
 });

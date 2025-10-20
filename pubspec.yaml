@@ -30,6 +30,8 @@ dependencies:
   # Audio codecs (for Omi device audio)
   opus_dart: ^3.0.1
   opus_flutter: ^3.0.3
+  # Local Whisper transcription
+  whisper_ggml: ^1.7.0
 
 dev_dependencies:
   flutter_test:

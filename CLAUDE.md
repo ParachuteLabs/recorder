@@ -82,11 +82,22 @@ All services use **Riverpod dependency injection** (no singletons):
    - Auto-initialized via `storageServiceProvider`
 
 3. **WhisperService** (`lib/services/whisper_service.dart`)
-   - OpenAI Whisper API integration for transcription
+   - OpenAI Whisper API integration for cloud transcription
    - API key management via StorageService
    - Accessed via `whisperServiceProvider`
 
-4. **RecordingRepository** (`lib/repositories/recording_repository.dart`)
+4. **WhisperLocalService** (`lib/services/whisper_local_service.dart`)
+   - Local on-device transcription using Whisper models
+   - Offline, private, and free transcription
+   - Progress tracking with callbacks
+   - Accessed via `whisperLocalServiceProvider`
+
+5. **WhisperModelManager** (`lib/services/whisper_model_manager.dart`)
+   - Manages Whisper model downloads and lifecycle
+   - Tracks download progress and storage usage
+   - Accessed via `whisperModelManagerProvider`
+
+6. **RecordingRepository** (`lib/repositories/recording_repository.dart`)
    - Repository pattern for data access
    - Clean CRUD API
    - Accessed via `recordingRepositoryProvider`
@@ -123,6 +134,7 @@ All services use **Riverpod dependency injection** (no singletons):
 - `path_provider ^2.0.0` - File system access
 - `shared_preferences ^2.0.0` - Settings persistence
 - `http ^1.2.0` - Whisper API calls
+- `whisper_ggml ^1.7.0` - Local Whisper transcription
 - `google_fonts ^6.1.0` - Typography
 
 **Dev packages:**
@@ -144,12 +156,45 @@ Run tests:
 flutter test
 ```
 
+## Transcription
+
+The app supports **two transcription modes**:
+
+### 1. OpenAI API (Cloud-based)
+
+- Uses OpenAI's Whisper API
+- Requires internet connection and API key
+- Cost: ~$0.006 per minute
+- Best quality and accuracy
+- Configure API key in Settings
+
+### 2. Local (On-device)
+
+- Uses local Whisper models via `whisper_ggml`
+- Completely offline and private
+- Free (no API costs)
+- Download models in Settings
+- Available models:
+  - **tiny** (75 MB) - Fast, good for real-time
+  - **base** (142 MB) - Balanced speed and accuracy (recommended)
+  - **small** (466 MB) - Better accuracy, slower
+  - **medium** (1.5 GB) - High accuracy, much slower
+  - **large** (2.9 GB) - Best quality, very slow
+
+**Features**:
+
+- Transcription mode selector (API vs Local)
+- Auto-transcribe toggle (automatic transcription after recording)
+- Progress tracking for local transcription
+- Model download management with progress indicators
+- Storage usage tracking
+
 ## Important Notes
 
 - App uses **Riverpod** - access services via `ref.read(serviceProvider)`
 - Recordings stored as `.m4a` (audio) + `.md` (metadata)
 - Sample recordings created on first launch
-- Transcription requires OpenAI API key (configured in Settings)
+- Transcription works offline with local models or via OpenAI API
 - File-based sync for cross-device support
 - Global error boundaries configured in main.dart
 - Production-ready with comprehensive validation

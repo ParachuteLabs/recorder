@@ -4,6 +4,8 @@ import 'package:parachute/models/recording.dart';
 import 'package:parachute/providers/service_providers.dart';
 import 'package:parachute/screens/settings_screen.dart';
 import 'package:parachute/services/whisper_service.dart';
+import 'package:parachute/services/whisper_local_service.dart';
+import 'package:parachute/models/whisper_models.dart';
 
 class PostRecordingScreen extends ConsumerStatefulWidget {
   final String recordingPath;
@@ -39,6 +41,8 @@ class _PostRecordingScreenState extends ConsumerState<PostRecordingScreen> {
   bool _isPlaying = false;
   bool _isSaving = false;
   bool _isTranscribing = false;
+  double _transcriptionProgress = 0.0;
+  String _transcriptionStatus = '';
 
   @override
   void initState() {
@@ -51,6 +55,25 @@ class _PostRecordingScreenState extends ConsumerState<PostRecordingScreen> {
 
     // Use the transcription from the recording if available
     _transcriptController.text = widget.initialTranscript ?? '';
+
+    // Check if auto-transcribe is enabled
+    _checkAutoTranscribe();
+  }
+
+  Future<void> _checkAutoTranscribe() async {
+    final storageService = ref.read(storageServiceProvider);
+    final autoTranscribe = await storageService.getAutoTranscribe();
+
+    // If auto-transcribe is enabled and no transcript exists, start transcription
+    if (autoTranscribe &&
+        (widget.initialTranscript == null ||
+            widget.initialTranscript!.isEmpty)) {
+      // Delay slightly to let the UI render first
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        _transcribeRecording();
+      }
+    }
   }
 
   Future<void> _togglePlayback() async {
@@ -76,10 +99,123 @@ class _PostRecordingScreenState extends ConsumerState<PostRecordingScreen> {
   Future<void> _transcribeRecording() async {
     if (_isTranscribing) return;
 
+    // Get transcription mode
+    final storageService = ref.read(storageServiceProvider);
+    final modeString = await storageService.getTranscriptionMode();
+    final mode =
+        TranscriptionMode.fromString(modeString) ?? TranscriptionMode.api;
+
+    setState(() {
+      _isTranscribing = true;
+      _transcriptionProgress = 0.0;
+      _transcriptionStatus = 'Starting...';
+    });
+
+    try {
+      String transcript;
+
+      if (mode == TranscriptionMode.local) {
+        // Use local Whisper
+        transcript = await _transcribeWithLocal();
+      } else {
+        // Use OpenAI API
+        transcript = await _transcribeWithAPI();
+      }
+
+      if (mounted) {
+        _transcriptController.text = transcript;
+        setState(() {
+          _transcriptionProgress = 1.0;
+          _transcriptionStatus = 'Complete!';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Transcription completed!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Transcription failed: $e'),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTranscribing = false;
+          _transcriptionProgress = 0.0;
+          _transcriptionStatus = '';
+        });
+      }
+    }
+  }
+
+  Future<String> _transcribeWithLocal() async {
+    final localService = ref.read(whisperLocalServiceProvider);
+
+    // Check if ready
+    final isReady = await localService.isReady();
+    if (!isReady) {
+      if (!mounted) throw WhisperLocalException('Not mounted');
+
+      // Show dialog to navigate to settings
+      final goToSettings = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Model Required'),
+          content: const Text(
+            'To use local transcription, you need to download a Whisper model in Settings.\n\n'
+            'Would you like to go to Settings now?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Go to Settings'),
+            ),
+          ],
+        ),
+      );
+
+      if (goToSettings == true && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SettingsScreen(),
+          ),
+        );
+      }
+      throw WhisperLocalException('Model not downloaded');
+    }
+
+    // Transcribe with progress updates
+    return await localService.transcribeAudio(
+      widget.recordingPath,
+      onProgress: (progress) {
+        if (mounted) {
+          setState(() {
+            _transcriptionProgress = progress.progress;
+            _transcriptionStatus = progress.status;
+          });
+        }
+      },
+    );
+  }
+
+  Future<String> _transcribeWithAPI() async {
     // Check if API key is configured
     final isConfigured = await ref.read(whisperServiceProvider).isConfigured();
     if (!isConfigured) {
-      if (!mounted) return;
+      if (!mounted) throw WhisperException('Not mounted');
 
       // Show dialog to navigate to settings
       final goToSettings = await showDialog<bool>(
@@ -111,50 +247,14 @@ class _PostRecordingScreenState extends ConsumerState<PostRecordingScreen> {
           ),
         );
       }
-      return;
+      throw WhisperException('API key not configured');
     }
 
-    setState(() => _isTranscribing = true);
+    setState(() => _transcriptionStatus = 'Uploading to OpenAI...');
 
-    try {
-      final transcript = await ref.read(whisperServiceProvider).transcribeAudio(
-            widget.recordingPath,
-          );
-
-      if (mounted) {
-        _transcriptController.text = transcript;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Transcription completed!'),
-            duration: Duration(seconds: 2),
-          ),
+    return await ref.read(whisperServiceProvider).transcribeAudio(
+          widget.recordingPath,
         );
-      }
-    } on WhisperException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Transcription failed: ${e.message}'),
-            duration: const Duration(seconds: 4),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Unexpected error: $e'),
-            duration: const Duration(seconds: 4),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isTranscribing = false);
-      }
-    }
   }
 
   Future<void> _saveRecording() async {
@@ -200,8 +300,8 @@ class _PostRecordingScreenState extends ConsumerState<PostRecordingScreen> {
         // Navigate back to home screen and trigger refresh
         if (mounted) {
           if (!mounted) return;
-        final navigator = Navigator.of(context);
-        navigator.popUntil((route) => route.isFirst);
+          final navigator = Navigator.of(context);
+          navigator.popUntil((route) => route.isFirst);
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -358,6 +458,20 @@ class _PostRecordingScreenState extends ConsumerState<PostRecordingScreen> {
           ],
         ),
         const SizedBox(height: 8),
+
+        // Progress indicator (only show when transcribing)
+        if (_isTranscribing) ...[
+          LinearProgressIndicator(value: _transcriptionProgress),
+          const SizedBox(height: 4),
+          Text(
+            _transcriptionStatus.isEmpty
+                ? 'Processing...'
+                : '$_transcriptionStatus ${(_transcriptionProgress * 100).toStringAsFixed(0)}%',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+        ],
+
         SizedBox(
           height: 200,
           child: TextField(
