@@ -36,9 +36,12 @@ final omiConnectionStateProvider = Provider<DeviceConnectionState?>((ref) {
 /// Provider for the currently connected Omi device
 ///
 /// Returns null if no device is connected.
-final connectedOmiDeviceProvider = Provider<OmiDevice?>((ref) {
+/// This is a StreamProvider that reactively updates when connection state changes.
+final connectedOmiDeviceProvider = StreamProvider<OmiDevice?>((ref) {
   final bluetoothService = ref.watch(omiBluetoothServiceProvider);
-  return bluetoothService.connectedDevice;
+
+  // Start with current connection state, then listen to stream
+  return bluetoothService.connectedDeviceStream;
 });
 
 /// Provider for OmiCaptureService

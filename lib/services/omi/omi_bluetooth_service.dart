@@ -34,12 +34,19 @@ class OmiBluetoothService {
 
   DateTime? _firstConnectedAt;
 
+  // Stream controller for connection state changes
+  final _connectionStateController = StreamController<OmiDevice?>.broadcast();
+
   // Getters
   OmiBluetoothServiceStatus get status => _status;
   List<OmiDevice> get discoveredDevices =>
       List.unmodifiable(_discoveredDevices);
   DeviceConnection? get activeConnection => _activeConnection;
   DateTime? get firstConnectedAt => _firstConnectedAt;
+
+  /// Stream of connected device changes (null when disconnected)
+  Stream<OmiDevice?> get connectedDeviceStream =>
+      _connectionStateController.stream;
 
   /// Start the Bluetooth service
   void start() {
@@ -82,11 +89,15 @@ class OmiBluetoothService {
     if (_activeConnection != null) {
       await _activeConnection!.disconnect();
       _activeConnection = null;
+      _connectionStateController.add(null);
     }
 
     // Cancel connection state listener
     await _connectionStateSubscription?.cancel();
     _connectionStateSubscription = null;
+
+    // Close stream controller
+    await _connectionStateController.close();
 
     _discoveredDevices.clear();
     _scanResults.clear();
@@ -206,6 +217,7 @@ class OmiBluetoothService {
       debugPrint('[OmiBluetoothService] Disconnecting existing connection');
       await _activeConnection!.disconnect();
       _activeConnection = null;
+      _connectionStateController.add(null);
     }
 
     // Find device in scan results
@@ -243,10 +255,14 @@ class OmiBluetoothService {
       _firstConnectedAt ??= DateTime.now();
       debugPrint('[OmiBluetoothService] Connected successfully');
 
+      // Notify listeners of connection
+      _connectionStateController.add(omiDevice);
+
       return _activeConnection;
     } catch (e) {
       debugPrint('[OmiBluetoothService] Connection failed: $e');
       _activeConnection = null;
+      _connectionStateController.add(null);
       rethrow;
     }
   }
@@ -257,6 +273,7 @@ class OmiBluetoothService {
       debugPrint('[OmiBluetoothService] Disconnecting');
       await _activeConnection!.disconnect();
       _activeConnection = null;
+      _connectionStateController.add(null);
     }
   }
 
@@ -290,6 +307,7 @@ class OmiBluetoothService {
     if (!isConnected && _activeConnection?.device.id == deviceId) {
       debugPrint('[OmiBluetoothService] Active device disconnected');
       _activeConnection = null;
+      _connectionStateController.add(null);
     }
   }
 

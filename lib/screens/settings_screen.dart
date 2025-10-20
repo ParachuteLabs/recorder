@@ -239,7 +239,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildOmiDeviceCard() {
-    final connectedDevice = ref.watch(connectedOmiDeviceProvider);
+    final connectedDeviceAsync = ref.watch(connectedOmiDeviceProvider);
+    final connectedDevice = connectedDeviceAsync.value;
     final isConnected = connectedDevice != null;
 
     return InkWell(
