@@ -1,10 +1,23 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:opus_dart/opus_dart.dart' as opus_dart;
+import 'package:opus_flutter/opus_flutter.dart' as opus_flutter;
 import 'package:parachute/screens/home_screen.dart';
 import 'package:parachute/theme.dart';
 
-void main() {
+void main() async {
+  // Ensure Flutter bindings are initialized
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Opus codec for audio decoding (required for Omi device recordings)
+  try {
+    await opus_dart.initOpus(await opus_flutter.load());
+    debugPrint('[Main] Opus codec initialized successfully');
+  } catch (e) {
+    debugPrint('[Main] Failed to initialize Opus codec: $e');
+    // Continue anyway - only affects Omi device recordings with Opus codec
+  }
   // Set up global error handling
   FlutterError.onError = (FlutterErrorDetails details) {
     // Log the error

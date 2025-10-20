@@ -20,6 +20,9 @@ class StorageService {
   static const String _syncFolderPathKey = 'sync_folder_path';
   static const String _hasInitializedKey = 'has_initialized';
   static const String _openaiApiKeyKey = 'openai_api_key';
+  static const String _transcriptionModeKey = 'transcription_mode';
+  static const String _preferredWhisperModelKey = 'preferred_whisper_model';
+  static const String _autoTranscribeKey = 'auto_transcribe';
 
   String? _syncFolderPath;
   bool _isInitialized = false;
@@ -182,8 +185,11 @@ class StorageService {
     final frontmatter = _parseYamlFrontmatter(parts[1]);
     final bodyContent = parts.sublist(2).join('---').trim();
 
-    // Extract audio file path
-    final audioPath = mdFile.path.replaceAll('.md', '.m4a');
+    // Determine file extension based on source
+    final source = frontmatter['source']?.toString() ?? 'phone';
+    final isOmiDevice = source.toLowerCase() == 'omidevice';
+    final audioPath =
+        mdFile.path.replaceAll('.md', isOmiDevice ? '.wav' : '.m4a');
 
     return Recording(
       id: frontmatter['id']?.toString() ?? '',
@@ -195,6 +201,9 @@ class StorageService {
       tags: (frontmatter['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       transcript: bodyContent,
       fileSizeKB: (frontmatter['fileSize'] ?? 0).toDouble(),
+      source: isOmiDevice ? RecordingSource.omiDevice : RecordingSource.phone,
+      deviceId: frontmatter['deviceId']?.toString(),
+      buttonTapCount: frontmatter['buttonTapCount'] as int?,
     );
   }
 
@@ -279,6 +288,15 @@ class StorageService {
     buffer.writeln('created: ${recording.timestamp.toIso8601String()}');
     buffer.writeln('duration: ${recording.duration.inSeconds}');
     buffer.writeln('fileSize: ${recording.fileSizeKB}');
+    buffer.writeln('source: ${recording.source}');
+
+    if (recording.deviceId != null) {
+      buffer.writeln('deviceId: ${recording.deviceId}');
+    }
+
+    if (recording.buttonTapCount != null) {
+      buffer.writeln('buttonTapCount: ${recording.buttonTapCount}');
+    }
 
     if (recording.tags.isNotEmpty) {
       buffer.writeln('tags:');
@@ -448,5 +466,73 @@ class StorageService {
   Future<bool> hasOpenAIApiKey() async {
     final apiKey = await getOpenAIApiKey();
     return apiKey != null && apiKey.isNotEmpty;
+  }
+
+  // Local Whisper Configuration
+
+  /// Get transcription mode (api or local)
+  Future<String> getTranscriptionMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_transcriptionModeKey) ?? 'api';
+    } catch (e) {
+      debugPrint('Error getting transcription mode: $e');
+      return 'api';
+    }
+  }
+
+  /// Set transcription mode
+  Future<bool> setTranscriptionMode(String mode) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setString(_transcriptionModeKey, mode);
+    } catch (e) {
+      debugPrint('Error setting transcription mode: $e');
+      return false;
+    }
+  }
+
+  /// Get preferred Whisper model
+  Future<String?> getPreferredWhisperModel() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_preferredWhisperModelKey);
+    } catch (e) {
+      debugPrint('Error getting preferred Whisper model: $e');
+      return null;
+    }
+  }
+
+  /// Set preferred Whisper model
+  Future<bool> setPreferredWhisperModel(String modelName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setString(_preferredWhisperModelKey, modelName);
+    } catch (e) {
+      debugPrint('Error setting preferred Whisper model: $e');
+      return false;
+    }
+  }
+
+  /// Get auto-transcribe setting
+  Future<bool> getAutoTranscribe() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_autoTranscribeKey) ?? false;
+    } catch (e) {
+      debugPrint('Error getting auto-transcribe setting: $e');
+      return false;
+    }
+  }
+
+  /// Set auto-transcribe setting
+  Future<bool> setAutoTranscribe(bool enabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setBool(_autoTranscribeKey, enabled);
+    } catch (e) {
+      debugPrint('Error setting auto-transcribe: $e');
+      return false;
+    }
   }
 }
